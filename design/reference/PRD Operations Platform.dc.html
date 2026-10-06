@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(31,157,107,.5)}100%{box-shadow:0 0 0 7px rgba(31,157,107,0)}}
+@keyframes slidein{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+body{margin:0;font-family:Poppins,sans-serif;background:#FAFAFB;color:#2B2B33}
+a{color:#B3141B}a:hover{color:#E41E26}
+input,select,button{font-family:Poppins,sans-serif}
+</style>
+</helmet>
+
+<sc-if value="{{ loggedOut }}" hint-placeholder-val="{{ true }}">
+<div style="min-height:100vh;display:flex;flex-wrap:wrap;font-family:Poppins,sans-serif;font-size:14px;color:#2B2B33">
+  <div style="flex:1 1 380px;background:#FDECEC;padding:48px;display:flex;flex-direction:column;justify-content:space-between;gap:32px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:10px"><div style="width:36px;height:36px;border-radius:10px;background:#E41E26;color:#fff;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center">OPS</div><div style="font-weight:600">Operations Platform</div></div>
+    <div><div style="font-size:30px;font-weight:600;line-height:1.25;max-width:420px">One place for every branch to see progress, buyers and sites.</div><div style="margin-top:12px;color:#747374;max-width:420px;line-height:1.6">Each company and branch has its own admin, users and data. Everything on this prototype is test data.</div></div>
+    <div style="font-size:12px;color:#747374">Prototype build. Not connected to any real system.</div>
+  </div>
+  <div style="flex:1 1 420px;display:flex;align-items:center;justify-content:center;padding:32px;box-sizing:border-box">
+    <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px">
+      <div style="font-size:22px;font-weight:600">{{ loginTitle }}</div>
+      <sc-if value="{{ stepCreds }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div onClick="{{ loginMs }}" style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px;border:1px solid #EAEAEF;border-radius:8px;font-weight:500;background:#fff" style-hover="background:#F5F6FA">Sign in with Microsoft</div>
+          <div style="text-align:center;font-size:12px;color:#747374">or use the fallback sign-in</div>
+          <input type="text" placeholder="Email" value="{{ email }}" onInput="{{ setEmail }}" style="padding:11px 12px;border:1px solid #EAEAEF;border-radius:8px;background:#F5F6FA;font-size:14px;outline:none"/>
+          <input type="password" placeholder="Password (any text in this prototype)" value="{{ pw }}" onInput="{{ setPw }}" style="padding:11px 12px;border:1px solid #EAEAEF;border-radius:8px;background:#F5F6FA;font-size:14px;outline:none"/>
+          <div onClick="{{ loginPw }}" style="cursor:pointer;text-align:center;padding:11px;border-radius:8px;background:#E41E26;color:#fff;font-weight:500" style-hover="background:#B3141B">Continue</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ stepMfa }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="color:#747374;font-size:13px">Enter the 6-digit code from your authenticator app. Any 6 digits work here.</div>
+          <input type="text" placeholder="123456" value="{{ mfa }}" onInput="{{ setMfa }}" style="padding:11px 12px;border:1px solid #EAEAEF;border-radius:8px;background:#F5F6FA;font-size:18px;letter-spacing:.3em;outline:none"/>
+          <div onClick="{{ loginMfa }}" style="cursor:pointer;text-align:center;padding:11px;border-radius:8px;background:#E41E26;color:#fff;font-weight:500">Verify and sign in</div>
+          <div onClick="{{ backToCreds }}" style="cursor:pointer;text-align:center;font-size:12px;color:#747374">Back</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#B3141B;background:#FDECEC;padding:10px 12px;border-radius:8px">{{ err }}</div></sc-if>
+      <div style="border-top:1px solid #EAEAEF;padding-top:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:11px;font-weight:500;color:#747374;text-transform:uppercase;letter-spacing:.06em">Test accounts</div>
+        <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="6">
+          <div onClick="{{ a.fill }}" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:8px;font-size:12px;background:#F5F6FA" style-hover="background:#FDECEC"><span style="font-weight:500">{{ a.email }}</span><span style="color:#747374;text-align:right">{{ a.role }}</span></div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ loggedIn }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;min-height:100vh;font-family:Poppins,sans-serif;font-size:14px;color:#2B2B33;background:#FAFAFB">
+  <aside style="width:232px;flex:none;background:#fff;border-right:1px solid #EAEAEF;padding:18px 12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;box-sizing:border-box;overflow:auto">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 8px 12px">
+      <div style="width:32px;height:32px;border-radius:8px;background:#E41E26;color:#fff;font-weight:600;font-size:12px;display:flex;align-items:center;justify-content:center">OPS</div>
+      <div style="line-height:1.25;min-width:0"><div style="font-weight:600;font-size:13px">{{ companyName }}</div><div style="font-size:11px;color:#747374">{{ branchName }}</div></div>
+    </div>
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+      <div>
+        <sc-if value="{{ n.isGroup }}" hint-placeholder-val="{{ false }}"><div style="font-size:11px;font-weight:500;color:#747374;letter-spacing:.06em;text-transform:uppercase;padding:14px 8px 4px">{{ n.label }}</div></sc-if>
+        <sc-if value="{{ n.isItem }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ n.go }}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:8px;font-size:13px;background:{{ n.bg }};color:{{ n.fg }};font-weight:{{ n.fw }}" style-hover="background:#F5F6FA"><span>{{ n.label }}</span><span style="width:7px;height:7px;border-radius:50%;background:{{ n.dot }};flex:none"></span></div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="display:flex;align-items:center;gap:12px;padding:12px 28px;background:#fff;border-bottom:1px solid #EAEAEF;flex-wrap:wrap;position:sticky;top:0;z-index:5">
+      <sc-if value="{{ scopeSelectable }}" hint-placeholder-val="{{ false }}">
+        <select onChange="{{ setScope }}" style="padding:8px 10px;border:1px solid #EAEAEF;border-radius:8px;background:#F5F6FA;font-size:13px;max-width:280px">
+          <sc-for list="{{ scopeOpts }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.t }}</option></sc-for>
+        </select>
+      </sc-if>
+      <sc-if value="{{ scopeFixed }}" hint-placeholder-val="{{ false }}"><div style="padding:8px 12px;border-radius:8px;background:#F5F6FA;font-size:13px">{{ scopeLabel }}</div></sc-if>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#747374">Show
+        <div style="display:flex;background:#F5F6FA;border-radius:8px;padding:3px;gap:2px">
+          <div onClick="{{ setAll }}" style="cursor:pointer;padding:5px 12px;border-radius:6px;font-size:12px;background:{{ allBg }};color:{{ allFg }}">All</div>
+          <div onClick="{{ setLive }}" style="cursor:pointer;padding:5px 12px;border-radius:6px;font-size:12px;background:{{ liveBg }};color:{{ liveFg }}">Live only</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="text-align:right;line-height:1.25"><div style="font-size:13px;font-weight:500">{{ userName }}</div><div style="font-size:11px;color:#747374">{{ userRole }}</div></div>
+        <div style="width:32px;height:32px;border-radius:50%;background:#FDECEC;color:#B3141B;font-weight:600;font-size:12px;display:flex;align-items:center;justify-content:center">{{ initials }}</div>
+        <div onClick="{{ signOut }}" style="cursor:pointer;font-size:12px;color:#747374;padding:6px 10px;border:1px solid #EAEAEF;border-radius:8px" style-hover="background:#F5F6FA">Sign out</div>
+      </div>
+    </header>
+    <sc-if value="{{ viewingBanner }}" hint-placeholder-val="{{ false }}"><div style="background:#EFEDFD;color:#4a3fb5;font-size:12px;padding:8px 28px">Viewing {{ companyName }} / {{ branchName }} as platform admin. Access is recorded in the platform audit log.</div></sc-if>
+
+    <div style="padding:24px 28px 96px;display:flex;flex-direction:column;gap:18px;max-width:1360px;width:100%;box-sizing:border-box">
+      <sc-if value="{{ denied }}" hint-placeholder-val="{{ false }}"><div style="background:#fff;border-radius:12px;padding:48px;text-align:center;color:#747374;box-shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.04)"><div style="font-weight:600;color:#2B2B33;font-size:16px;margin-bottom:6px">No access</div>Your role does not include this page. The server would return 403.</div></sc-if>
+
+      <sc-if value="{{ page.ok }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+          <div style="min-width:0"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="margin:0;font-size:22px;font-weight:600">{{ page.title }}</h1><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:500;background:{{ page.btint }};color:{{ page.bink }}">{{ page.blabel }}</span></div><div style="color:#747374;font-size:13px;margin-top:3px">{{ page.sub }}</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ page.actions }}" as="a" hint-placeholder-count="1"><div onClick="{{ a.fn }}" style="cursor:pointer;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;background:{{ a.bg }};color:{{ a.fg }};border:1px solid {{ a.bd }}">{{ a.t }}</div></sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ page.hasTabs }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:4px;border-bottom:1px solid #EAEAEF;font-size:13px;overflow:auto">
+            <sc-for list="{{ page.tabs }}" as="t" hint-placeholder-count="4"><div onClick="{{ t.fn }}" style="cursor:pointer;padding:8px 14px;white-space:nowrap;border-bottom:2px solid {{ t.bd }};color:{{ t.fg }};font-weight:{{ t.fw }}">{{ t.t }}</div></sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ page.hasDds }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;background:#fff;padding:12px 14px;border-radius:12px;box-shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.04)">
+            <sc-for list="{{ page.dds }}" as="g" hint-placeholder-count="5"><div style="display:flex;flex-direction:column;gap:4px;flex:1 1 130px;max-width:200px"><span style="font-size:11px;color:#747374">{{ g.label }}</span><select onChange="{{ g.fn }}" style="padding:8px 10px;border:1px solid #EAEAEF;border-radius:8px;background:#F5F6FA;font-size:13px;color:#2B2B33;outline:none"><sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.t }}</option></sc-for></select></div></sc-for>
+            <sc-for list="{{ page.toggles }}" as="t" hint-placeholder-count="1"><div onClick="{{ t.fn }}" style="cursor:pointer;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }}">{{ t.t }}</div></sc-for>
+            <div onClick="{{ page.resetFn }}" style="cursor:pointer;padding:8px 6px;font-size:12px;color:#747374">Reset filters</div>
+          </div>
+        </sc-if>
+        <sc-for list="{{ page.filters }}" as="g" hint-placeholder-count="1">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-size:12px;color:#747374;min-width:64px">{{ g.label }}</span>
+            <sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="4"><div onClick="{{ o.fn }}" style="cursor:pointer;padding:5px 12px;border-radius:999px;font-size:12px;border:1px solid {{ o.bd }};background:{{ o.bg }};color:{{ o.fg }};font-weight:{{ o.fw }}">{{ o.t }}</div></sc-for>
+          </div>
+        </sc-for>
+        <sc-if value="{{ page.hasKpis }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px">
+            <sc-for list="{{ page.kpis }}" as="k" hint-placeholder-count="5">
+              <div style="background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.04);position:relative;display:flex;flex-direction:column;gap:3px">
+                <div style="font-size:12px;color:#747374;padding-right:14px">{{ k.label }}</div>
+                <div style="font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.15">{{ k.value }}</div>
+                <div style="font-size:11px;color:{{ k.ink }};font-weight:500">{{ k.status }}</div>
+                <span style="position:absolute;top:14px;right:14px;width:8px;height:8px;border-radius:50%;background:{{ k.c }}"></span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ page.hasNotice }}" hint-placeholder-val="{{ false }}"><div style="background:#FFF5DB;color:#8a5d00;font-size:13px;padding:10px 14px;border-radius:8px">{{ page.notice }}</div></sc-if>
+
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+          <sc-for list="{{ page.blocks }}" as="b" hint-placeholder-count="2">
+            <div style="flex:1 1 {{ b.basis }};min-width:0;background:#fff;border-radius:12px;padding:18px;box-shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.04);position:relative;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+              <sc-if value="{{ b.test }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;top:12px;right:-32px;transform:rotate(35deg);background:#EFEDFD;color:#6C5CE7;font-size:10px;font-weight:600;padding:2px 36px;letter-spacing:.06em">TEST DATA</div></sc-if>
+              <sc-if value="{{ b.hasTitle }}" hint-placeholder-val="{{ true }}"><div style="padding-right:{{ b.pr }}"><div style="font-weight:600">{{ b.title }}</div><sc-if value="{{ b.hasSub }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#747374;margin-top:2px">{{ b.sub }}</div></sc-if></div></sc-if>
+
+              <sc-if value="{{ b.isTable }}" hint-placeholder-val="{{ false }}">
+                <div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:{{ b.minw }}">
+                  <sc-if value="{{ b.hasHead }}" hint-placeholder-val="{{ true }}"><thead><tr style="text-align:left;color:#747374;font-size:12px"><sc-for list="{{ b.head }}" as="h" hint-placeholder-count="5"><th style="padding:8px 12px;font-weight:500;white-space:nowrap">{{ h }}</th></sc-for></tr></thead></sc-if>
+                  <tbody><sc-for list="{{ b.rows }}" as="r" hint-placeholder-count="5">
+                    <tr onClick="{{ r.open }}" style="border-top:1px solid #EAEAEF;background:{{ r.bg }};cursor:{{ r.cur }}" style-hover="background:#F5F6FA"><sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5"><td style="padding:10px 12px;vertical-align:middle;font-weight:{{ c.w }};color:{{ c.col }}">
+                      <sc-if value="{{ c.isT }}" hint-placeholder-val="{{ true }}"><span>{{ c.t }}</span></sc-if>
+                      <sc-if value="{{ c.isB }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:500;white-space:nowrap;background:{{ c.tint }};color:{{ c.ink }}">{{ c.t }}</span></sc-if>
+                      <sc-if value="{{ c.isBtn }}" hint-placeholder-val="{{ false }}"><span onClick="{{ c.fn }}" style="cursor:pointer;display:inline-block;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:500;white-space:nowrap;background:{{ c.tint }};color:{{ c.ink }}">{{ c.t }}</span></sc-if>
+                    </td></sc-for></tr>
+                  </sc-for></tbody></table></div>
+              </sc-if>
+
+              <sc-if value="{{ b.isBars }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:9px"><sc-for list="{{ b.items }}" as="i" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:10px;font-size:12px"><span style="width:120px;flex:none">{{ i.label }}</span><div style="flex:1;height:8px;background:#F5F6FA;border-radius:999px"><div style="width:{{ i.w }}%;height:8px;background:{{ i.c }};border-radius:999px"></div></div><span style="width:44px;text-align:right;font-variant-numeric:tabular-nums">{{ i.v }}</span></div></sc-for></div>
+              </sc-if>
+
+              <sc-if value="{{ b.isCols }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:flex-end;gap:6px;height:150px"><sc-for list="{{ b.items }}" as="i" hint-placeholder-count="8"><div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%"><div style="width:100%;height:{{ i.h }}px;background:#FDECEC;border-top:2px solid #E41E26;border-radius:4px 4px 0 0"></div><span style="font-size:10px;color:#747374">{{ i.label }}</span></div></sc-for></div>
+              </sc-if>
+
+              <sc-if value="{{ b.isCards }}" hint-placeholder-val="{{ false }}">
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px"><sc-for list="{{ b.items }}" as="p" hint-placeholder-count="3">
+                  <div style="border:1px solid #EAEAEF;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;background:#fff">
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <sc-if value="{{ p.hasRing }}" hint-placeholder-val="{{ true }}"><div style="width:52px;height:52px;border-radius:50%;background:{{ p.ring }};display:flex;align-items:center;justify-content:center;flex:none"><div style="width:40px;height:40px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px">{{ p.pct }}%</div></div></sc-if>
+                      <div style="flex:1;min-width:0"><div style="font-weight:600">{{ p.title }}</div><span style="display:inline-block;margin-top:3px;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:500;background:{{ p.tint }};color:{{ p.ink }}">{{ p.badge }}</span></div>
+                    </div>
+                    <div style="font-size:13px;line-height:1.5">{{ p.body }}</div>
+                    <div style="font-size:12px;color:#747374">{{ p.meta }}</div>
+                    <sc-for list="{{ p.lines }}" as="l" hint-placeholder-count="1"><div style="display:flex;align-items:center;gap:8px;font-size:12px;border-top:1px solid #EAEAEF;padding-top:8px"><div style="flex:1;opacity:{{ l.op }};text-decoration:{{ l.td }}">{{ l.text }}</div><div onClick="{{ l.fn }}" style="cursor:pointer;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:500;background:{{ l.bg }};color:{{ l.fg }}">{{ l.label }}</div></div></sc-for>
+                  </div>
+                </sc-for></div>
+              </sc-if>
+
+              <sc-if value="{{ b.isKanban }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:12px;overflow:auto;padding-bottom:8px;align-items:flex-start"><sc-for list="{{ b.cols }}" as="s" hint-placeholder-count="5">
+                  <div onDragOver="{{ s.over }}" onDrop="{{ s.drop }}" style="width:216px;flex:none;background:{{ s.bg }};border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px">
+                    <div style="font-size:12px;font-weight:600;padding:2px 4px;display:flex;justify-content:space-between"><span>{{ s.name }}</span><span style="color:#747374;font-weight:400">{{ s.count }}</span></div>
+                    <sc-for list="{{ s.cards }}" as="c" hint-placeholder-count="1">
+                      <div draggable="true" onDragStart="{{ c.start }}" onClick="{{ c.open }}" style="cursor:grab;background:#fff;border-radius:8px;padding:10px;box-shadow:0 1px 2px rgba(20,20,40,.08);font-size:12px;display:flex;flex-direction:column;gap:6px" style-hover="box-shadow:0 2px 10px rgba(20,20,40,.16)">
+                        <div style="font-weight:500">{{ c.addr }}</div><div style="color:#747374">{{ c.suburb }} · {{ c.lot }}</div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap"><span style="padding:1px 8px;border-radius:999px;font-size:10px;font-weight:500;background:{{ c.ztint }};color:{{ c.zink }}">{{ c.zone }}</span><span style="padding:1px 8px;border-radius:999px;font-size:10px;font-weight:500;background:#F5F6FA;color:#747374">{{ c.pri }}</span></div>
+                        <div style="color:#747374;font-size:11px">{{ c.who }} · {{ c.days }}d in stage</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-for></div>
+              </sc-if>
+
+              <sc-if value="{{ b.isMap }}" hint-placeholder-val="{{ false }}">
+                <div style="position:relative;height:440px;border-radius:12px;border:1px solid #EAEAEF;background:#E9ECEF;overflow:hidden">
+                  <div style="position:absolute;inset:0">{{ b.tileEls }}</div>
+                  <sc-for list="{{ b.farms }}" as="f" hint-placeholder-count="5"><div style="position:absolute;left:calc(50% + {{ f.dx }}px);top:calc(50% + {{ f.dy }}px);transform:translate(-50%,-50%);width:{{ f.sz }}px;height:{{ f.sz }}px;border-radius:50%;background:{{ f.bg }};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:{{ f.col }};text-shadow:{{ f.sh }};text-align:center;pointer-events:none">{{ f.name }}</div></sc-for>
+                  <sc-for list="{{ b.pins }}" as="p" hint-placeholder-count="10"><div onClick="{{ p.open }}" title="{{ p.tip }}" style="position:absolute;left:calc(50% + {{ p.dx }}px);top:calc(50% + {{ p.dy }}px);width:14px;height:14px;margin:-7px;border-radius:50%;background:{{ p.c }};border:2px solid #fff;box-shadow:0 1px 4px rgba(20,20,40,.4);cursor:pointer"></div></sc-for>
+                  <div style="position:absolute;top:10px;left:10px;display:flex;background:#fff;border-radius:8px;padding:3px;gap:2px;box-shadow:0 1px 4px rgba(20,20,40,.2)"><sc-for list="{{ b.modes }}" as="m" hint-placeholder-count="2"><div onClick="{{ m.fn }}" style="cursor:pointer;padding:5px 12px;border-radius:6px;font-size:12px;background:{{ m.bg }};color:{{ m.fg }}">{{ m.t }}</div></sc-for></div>
+                  <div style="position:absolute;top:10px;right:10px;display:flex;flex-direction:column;background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(20,20,40,.2);overflow:hidden"><div onClick="{{ b.zin }}" style="cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:18px" style-hover="background:#F5F6FA">+</div><div onClick="{{ b.zout }}" style="cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:18px;border-top:1px solid #EAEAEF" style-hover="background:#F5F6FA">−</div></div>
+                  <div style="position:absolute;right:8px;bottom:6px;font-size:10px;background:rgba(255,255,255,.8);padding:1px 6px;border-radius:4px;color:#555">{{ b.attr }}</div>
+                </div>
+                <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#747374"><sc-for list="{{ b.legend }}" as="l" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:{{ l.c }}"></span>{{ l.t }}</span></sc-for></div>
+              </sc-if>
+
+              <sc-if value="{{ b.isForm }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+                  <sc-for list="{{ b.fields }}" as="f" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:4px;flex:1 1 {{ f.basis }}">
+                    <span style="font-size:11px;color:#747374">{{ f.label }}</span>
+                    <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ true }}"><input type="text" placeholder="{{ f.ph }}" value="{{ f.val }}" onInput="{{ f.fn }}" style="padding:9px 11px;border:1px solid #EAEAEF;border-radius:8px;background:#F5F6FA;font-size:13px;outline:none"/></sc-if>
+                    <sc-if value="{{ f.isSel }}" hint-placeholder-val="{{ false }}"><select onChange="{{ f.fn }}" style="padding:9px 11px;border:1px solid #EAEAEF;border-radius:8px;background:#F5F6FA;font-size:13px"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.t }}</option></sc-for></select></sc-if>
+                  </div></sc-for>
+                  <div onClick="{{ b.submitFn }}" style="cursor:pointer;padding:9px 18px;border-radius:8px;background:#E41E26;color:#fff;font-size:13px;font-weight:500">{{ b.submitT }}</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ b.isToggles }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column"><sc-for list="{{ b.rows }}" as="r" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid #EAEAEF"><div style="flex:1"><div style="font-weight:500;font-size:13px">{{ r.label }}</div><div style="font-size:12px;color:#747374;margin-top:2px">{{ r.desc }}</div></div><div onClick="{{ r.fn }}" style="cursor:pointer;width:40px;height:22px;border-radius:999px;background:{{ r.bg }};position:relative;flex:none"><div style="position:absolute;top:2px;left:{{ r.left }}px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2)"></div></div></div></sc-for></div>
+              </sc-if>
+
+              <sc-if value="{{ b.test }}" hint-placeholder-val="{{ false }}"><div style="font-size:11px;color:#6C5CE7">Test data: not real figures</div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ page.hidden }}" hint-placeholder-val="{{ false }}"><div style="background:#fff;border-radius:12px;padding:48px;text-align:center;color:#747374;box-shadow:0 1px 2px rgba(20,20,40,.04),0 4px 16px rgba(20,20,40,.04)"><div style="font-weight:600;color:#2B2B33;font-size:16px;margin-bottom:6px">{{ page.title }}</div>Hidden by "Live only". This page shows test data only. Switch to All to see it.</div></sc-if>
+    </div>
+
+    <div onClick="{{ goFeedback }}" style="position:fixed;right:24px;bottom:24px;background:#E41E26;color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(228,30,38,.35);cursor:pointer">Feedback</div>
+    <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#2B2B33;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:30">{{ toast }}</div></sc-if>
+  </main>
+
+  <sc-if value="{{ hasDrawer }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:20;display:flex;justify-content:flex-end;background:rgba(20,20,40,.25)">
+      <div onClick="{{ closeDrawer }}" style="flex:1"></div>
+      <div style="width:min(560px,100%);background:#fff;height:100%;overflow:auto;box-shadow:-8px 0 32px rgba(20,20,40,.12);animation:slidein .15s ease;padding:22px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:600">{{ dr.title }}</div><div style="color:#747374;margin-top:2px">{{ dr.sub }}</div></div><div onClick="{{ closeDrawer }}" style="cursor:pointer;font-size:12px;color:#747374;padding:6px 10px;border:1px solid #EAEAEF;border-radius:8px;height:fit-content">Close</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ dr.badges }}" as="b" hint-placeholder-count="2"><span style="padding:3px 10px;border-radius:999px;font-size:11px;font-weight:500;background:{{ b.tint }};color:{{ b.ink }}">{{ b.t }}</span></sc-for></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ dr.actions }}" as="a" hint-placeholder-count="2"><div onClick="{{ a.fn }}" style="cursor:pointer;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:500;background:{{ a.bg }};color:{{ a.fg }};border:1px solid {{ a.bd }}">{{ a.t }}</div></sc-for></div>
+        <sc-for list="{{ dr.sections }}" as="sec" hint-placeholder-count="3">
+          <div style="border-top:1px solid #EAEAEF;padding-top:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:11px;font-weight:500;color:#747374;text-transform:uppercase;letter-spacing:.06em">{{ sec.h }}</div>
+            <sc-if value="{{ sec.isKv }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 16px"><sc-for list="{{ sec.items }}" as="i" hint-placeholder-count="4"><div><div style="font-size:11px;color:#747374">{{ i.k }}</div><div style="font-weight:500">{{ i.v }}</div></div></sc-for></div></sc-if>
+            <sc-if value="{{ sec.isList }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:6px"><sc-for list="{{ sec.items }}" as="i" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #F5F6FA"><span>{{ i.a }}</span><span style="color:#747374;text-align:right">{{ i.b }}</span></div></sc-for></div></sc-if>
+            <sc-if value="{{ sec.isChat }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ sec.items }}" as="m" hint-placeholder-count="4">
+              <div style="display:flex;justify-content:{{ m.align }}"><div style="max-width:86%;padding:8px 12px;border-radius:12px;background:{{ m.bg }};border:{{ m.bd }}"><div style="font-size:10px;color:#747374;margin-bottom:2px">{{ m.who }} · {{ m.tag }} · {{ m.t }}</div><div style="line-height:1.5">{{ m.text }}</div></div></div>
+            </sc-for></div></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { sess: null, email: '', pw: '', mfa: '', step: 'creds', err: '', pending: null, page: 'progress', liveOnly: false, scope: { c: 'prd', b: 'all' }, drawer: null, tab: {}, f: {}, moved: {}, done: {}, ack: {}, assign: {}, votes: {}, insp: {}, rev: {}, zc: {}, contacted: {}, tdone: {}, hist: {}, users: null, companies: null, audit: null, newTasks: [], newFb: [], form: {}, toast: '', set: {}, layers: { sites: true, farm: true, demand: true }, bs: { range: '7', day: null, cls: 'all', status: 'all', agent: 'all', insp: false, test: false } };
+  _g = {};
+  drag = null;
+  ROLE = { platform_admin: 'Platform admin', company_admin: 'Company admin', branch_admin: 'Branch admin', marketing: 'Marketing', agent: 'Sales agent', viewer: 'Viewer' };
+  ST = {
+    live: ['#1F9D6B', '#E6F6EF', '#136b49', 'Live'], waiting: ['#E8A100', '#FFF5DB', '#8a5d00', 'Waiting on access'], prototype: ['#E8A100', '#FFF5DB', '#8a5d00', 'Prototype'],
+    planned: ['#8A8F9C', '#EEF0F4', '#5d6270', 'Planned'], test: ['#6C5CE7', '#EFEDFD', '#6C5CE7', 'Test data'], done: ['#1F9D6B', '#E6F6EF', '#136b49', 'Done'],
+    next: ['#E8A100', '#FFF5DB', '#8a5d00', 'Next'], risk: ['#D64545', '#FDECEC', '#B3141B', 'At risk'], red: ['#D64545', '#FDECEC', '#B3141B', ''], grey: ['#8A8F9C', '#EEF0F4', '#5d6270', ''],
+  };
+  SEED_USERS = [
+    ['Hamza Tasneem', 'hamza@remap.ai', 'platform_admin', null, null], ['Irfan Malik', 'irfan@remap.ai', 'platform_admin', null, null], ['Suffyan Raza', 'suffyan@remap.ai', 'platform_admin', null, null],
+    ['Darren Hale', 'darren@prd.test', 'company_admin', 'prd', null], ['Lily Chen', 'lily@penrith.prd.test', 'branch_admin', 'prd', 'pen'], ['Thomas Reid', 'thomas@penrith.prd.test', 'marketing', 'prd', 'pen'], ['Thea Novak', 'thea@penrith.prd.test', 'marketing', 'prd', 'pen'],
+    ['Maya Okafor', 'maya@penrith.prd.test', 'agent', 'prd', 'pen'], ['Liam Brandt', 'liam@penrith.prd.test', 'agent', 'prd', 'pen'], ['Priya Nair', 'priya@stmarys.prd.test', 'branch_admin', 'prd', 'stm'], ['Jack Mercer', 'jack@stmarys.prd.test', 'agent', 'prd', 'stm'],
+    ['Sofia Rinaldi', 'sofia@stmarys.prd.test', 'agent', 'prd', 'stm'], ['Ben Tran', 'ben@windsor.prd.test', 'branch_admin', 'prd', 'win'], ['Ava Klein', 'ava@windsor.prd.test', 'agent', 'prd', 'win'], ['Noah Walsh', 'noah@windsor.prd.test', 'viewer', 'prd', 'win'],
+    ['Elise Marlow', 'elise@harbourline.test', 'company_admin', 'hbl', null], ['Owen Park', 'owen@north.harbourline.test', 'branch_admin', 'hbl', 'nor'], ['Zara Quinn', 'zara@north.harbourline.test', 'agent', 'hbl', 'nor'], ['Carl Ito', 'carl@south.harbourline.test', 'branch_admin', 'hbl', 'sou'], ['Tess Moran', 'tess@south.harbourline.test', 'agent', 'hbl', 'sou'],
+  ].map((u, i) => ({ id: 'u' + i, name: u[0], email: u[1], role: u[2], c: u[3], b: u[4], status: 'Active', last: '6 Oct, 8:' + (10 + i * 2), mfa: true }));
+  COMPANIES0 = [
+    { id: 'prd', name: 'PRD Group (test)', entra: false, status: 'Active', branches: [
+      { id: 'pen', name: 'Penrith', sub: ['Penrith', 'St Marys', 'Kingswood', 'Werrington', 'Cambridge Park', 'Emu Plains', 'Jamisontown'] },
+      { id: 'stm', name: 'St Marys', sub: ['St Marys', 'Oxley Park', 'Mount Druitt', 'Colyton', 'Rooty Hill', 'Minchinbury'] },
+      { id: 'win', name: 'Windsor', sub: ['Windsor', 'Richmond', 'McGraths Hill', 'Pitt Town', 'Vineyard', 'Clarendon'] }] },
+    { id: 'hbl', name: 'Harbourline Realty (test)', entra: true, status: 'Active', branches: [
+      { id: 'nor', name: 'Northside', sub: ['Manly', 'Dee Why', 'Brookvale', 'Narrabeen', 'Collaroy', 'Freshwater'] },
+      { id: 'sou', name: 'Southside', sub: ['Cronulla', 'Caringbah', 'Miranda', 'Sutherland', 'Engadine', 'Kirrawee'] }] },
+  ];
+  AUDIT0 = [
+    { t: '6 Oct, 8:12', who: 'Hamza Tasneem', a: 'Sign-in', d: 'Platform admin sign-in', c: null, b: null },
+    { t: '6 Oct, 8:30', who: 'Lily Chen', a: 'Sign-in', d: 'Branch admin sign-in', c: 'prd', b: 'pen' },
+    { t: '5 Oct, 16:40', who: 'Darren Hale', a: 'Role change', d: 'Thea Novak set to Marketing', c: 'prd', b: 'pen' },
+    { t: '5 Oct, 11:05', who: 'Maya Okafor', a: 'PII reveal', d: 'Revealed contact for Marcus Dhillon', c: 'prd', b: 'pen' },
+    { t: '4 Oct, 15:22', who: 'Thomas Reid', a: 'Stage move', d: 'Site moved Qualified to Owner traced', c: 'prd', b: 'pen' },
+    { t: '3 Oct, 9:48', who: 'Owen Park', a: 'Config change', d: 'Alert destination changed', c: 'hbl', b: 'nor' },
+  ];
+
+  bd = (k, t) => { const c = this.ST[k]; return { isB: true, t: t || c[3], tint: c[1], ink: c[2] }; };
+  tx = (t, w) => ({ isT: true, t: String(t), w: w || 400, col: '#2B2B33' });
+  mu = (t) => ({ isT: true, t: String(t), w: 400, col: '#747374' });
+  bt = (t, fn, k) => { const c = this.ST[k || 'red']; return { isBtn: true, t, fn, tint: k ? c[1] : '#FDECEC', ink: k ? c[2] : '#B3141B' }; };
+  row = (cells, open, bg) => ({ cells, open, bg: bg || 'transparent', cur: open ? 'pointer' : 'default' });
+  S = (o) => this.setState(o);
+  users = () => this.state.users || this.SEED_USERS;
+  companies = () => this.state.companies || this.COMPANIES0;
+  toast = (m) => { this.S({ toast: m }); clearTimeout(this._tt); this._tt = setTimeout(() => this.S({ toast: '' }), 2400); };
+  log = (a, d) => this.setState(st => { const u = st.sess || {}; const sc = this.eff(st); return { audit: [{ t: '6 Oct, ' + new Date().toTimeString().slice(0, 5), who: u.name, a, d, c: sc.c, b: sc.b === 'all' ? null : sc.b }, ...(st.audit || this.AUDIT0)] }; });
+  eff = (st) => { const u = st.sess; if (!u) return { c: 'prd', b: 'all' }; if (u.role === 'platform_admin') return st.scope; if (u.role === 'company_admin') return { c: u.c, b: st.scope.c === u.c ? st.scope.b : 'all' }; return { c: u.c, b: u.b }; };
+  branchesOf = (sc) => { const co = this.companies().find(x => x.id === sc.c) || this.companies()[0]; return sc.b === 'all' ? co.branches : co.branches.filter(b => b.id === sc.b); };
+  dayLbl = (o) => o === 0 ? 'Today' : o === 1 ? 'Yesterday' : new Date(2026, 9, 6 - o).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  gen = (b) => {
+    if (this._g[b.id]) return this._g[b.id];
+    let h = 7; for (const ch of b.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    let a = h; const r = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const pk = (x) => x[Math.floor(r() * x.length)], ri = (lo, hi) => lo + Math.floor(r() * (hi - lo + 1));
+    const ag = this.SEED_USERS.filter(u => u.b === b.id && ['agent', 'marketing', 'branch_admin'].includes(u.role)).map(u => u.name);
+    if (ag.length < 2) ag.push('Test Agent One', 'Test Agent Two');
+    const F = ['Aroha', 'Callum', 'Dev', 'Elena', 'Farid', 'Grace', 'Hiro', 'Isla', 'Jonas', 'Kavya', 'Lena', 'Marcus', 'Nadia', 'Oscar', 'Petra', 'Quinn', 'Rafael', 'Sienna', 'Tomas', 'Uma'];
+    const L = ['Abbott', 'Bellamy', 'Castellano', 'Dhillon', 'Eriksen', 'Faulkner', 'Gallagher', 'Hartono', 'Iyer', 'Jovanovic', 'Kowalski', 'Lindqvist', 'Moreau', 'Nakamura', 'Okonkwo', 'Pellegrini', 'Quigley', 'Rahman', 'Sutherland', 'Thornton'];
+    const STR = ['Banksia', 'Wattle', 'Jacaranda', 'Redgum', 'Coral', 'Eucalypt', 'River', 'Station', 'Park', 'Hill'], SFX = ['St', 'Rd', 'Ave', 'Cres'];
+    const addr = (sub) => ri(3, 180) + ' ' + pk(STR) + ' ' + pk(SFX) + ', ' + sub;
+    const T = (m) => { m = Math.round(m); const hh = Math.floor(m / 60) % 24, mm = m % 60; return ((hh + 11) % 12 + 1) + ':' + String(mm).padStart(2, '0') + (hh < 12 ? ' am' : ' pm'); };
+    const SRC = ['REA', 'Domain', 'Website', 'Meta'], RS = ['Buyer asked for an inspection', 'Price negotiation question', 'Finance question', 'Buyer asked for a human', 'Off-script question'];
+    const convos = Array.from({ length: 46 }, (_, i) => {
+      const day = Math.floor(Math.pow(r(), 1.5) * 14), hr = ri(7, 20), mn = ri(0, 59), base = hr * 60 + mn;
+      const f = pk(F), l = pk(L), cls = r() < .28 ? 'Hot' : r() < .55 ? 'Warm' : 'New', sub = pk(b.sub), prop = addr(sub), src = pk(SRC);
+      const status = cls === 'Hot' ? pk(['Handed over', 'Handed over', 'Escalated']) : cls === 'Warm' ? pk(['AI replying', 'Handed over', 'AI replying', 'Stopped']) : pk(['AI replying', 'Stopped', 'Opted out', 'AI replying']);
+      const human = status === 'Handed over' || status === 'Escalated', agent = human ? pk(ag) : null;
+      const ag2 = ag.filter(x => x !== agent), ref = human && r() < .45 ? pk(ag2) : null;
+      const insp = cls !== 'New' && r() < .65 ? pk(['offered', 'to confirm', 'to confirm', 'confirmed']) : 'none';
+      const budget = '$' + (ri(55, 140) * 10) + 'k', ch = [
+        { who: 'buyer', text: 'Hi, I saw ' + prop + ' on ' + src + '. Is it still available?', t: T(base) },
+        { who: 'ai', text: 'Hi ' + f + ', thanks for your enquiry on ' + prop + '. It is available. Are you buying to live in or as an investment?', t: T(base + 1) }];
+      if (cls !== 'New' || status === 'AI replying') {
+        ch.push({ who: 'buyer', text: pk(['To live in. We are a family of four.', 'Investment. What are rents like in the area?', 'To live in, first home for us.']), t: T(base + 7) });
+        ch.push({ who: 'ai', text: 'Great. Do you have a budget range in mind, and is finance pre-approved?', t: T(base + 8) });
+        if (r() < .85) ch.push({ who: 'buyer', text: 'Around ' + budget + '. ' + pk(['Pre-approved with a broker.', 'Still speaking to a broker.', 'We are cash buyers.']), t: T(base + 16) });
+      }
+      if (insp !== 'none') { ch.push({ who: 'ai', text: 'I can book you an inspection this Saturday at 10:30 am. Does that work?', t: T(base + 17) }); if (insp !== 'offered') ch.push({ who: 'buyer', text: 'Saturday at 10:30 works for us.', t: T(base + 25) }); }
+      if (human) ch.push({ who: 'ai', text: 'I am passing you to ' + agent + ', who can confirm the details. They will message you shortly.', t: T(base + 27) });
+      const hum = [];
+      if (human) {
+        const rs = pk(RS);
+        hum.push({ who: 'System', kind: 'note', text: 'Handed over to ' + agent + '. Reason: ' + rs + '. Classified ' + cls + '.', t: T(base + 28) });
+        hum.push({ who: agent, kind: 'out', text: 'Hi ' + f + ', it is ' + agent + ' from the ' + b.name + ' branch. Happy to help with ' + prop + '. When suits for a quick call?', t: T(base + 40) });
+        if (r() < .85) hum.push({ who: f + ' ' + l, kind: 'in', text: pk(['Tomorrow after 4 pm is good.', 'Can you call me at lunch time?', 'Message is fine, what is the best price guidance?']), t: T(base + 58) });
+        if (ref) {
+          hum.push({ who: agent, kind: 'int', text: 'To ' + ref + ': can you take ' + f + ' ' + l + '? ' + pk(['They have a question about the contract.', 'They are interested in a second property.', 'Better handled by your listings.']), t: T(base + 70) });
+          hum.push({ who: ref, kind: 'int', text: 'To ' + agent + ': yes, I will call them today and update the notes.', t: T(base + 75) });
+          hum.push({ who: ref, kind: 'out', text: 'Hi ' + f + ', ' + ref + ' here. ' + agent + ' asked me to follow up on your question.', t: T(base + 90) });
+        }
+      }
+      return { id: b.id + '-c' + i, bid: b.id, bn: b.name, day, base, time: T(base), name: f + ' ' + l, first: f, phone: '04•• ••• ' + ri(100, 999), prop, sub, src, cls, status, human, agent, ref, insp, resp: r() < .2 ? ri(25, 90) : ri(1, 9), test: r() < .1, chat: ch, hum, rs: human ? hum[0].text : '', fields: { budget, beds: pk(['2', '3', '4']), when: pk(['0-3 months', '3-6 months', '6-12 months']), fin: pk(['Pre-approved', 'Speaking to broker', 'Cash buyer', 'Not yet']), use: pk(['Live in', 'Investment']) } };
+    }).sort((x, y) => x.day - y.day || y.base - x.base);
+    const ST = ['Detected', 'Qualified', 'Owner traced', 'Approached', 'Negotiation', 'Acquired', 'DA approved', 'Marketing', 'Selling', 'Settled'];
+    const ZN = ['R3 Medium Density', 'R4 High Density', 'R2 Low Density', 'B4 Mixed Use'];
+    const sites = Array.from({ length: 20 }, (_, i) => { const sub = pk(b.sub), zc = r() < .6, st = Math.min(9, Math.floor(Math.pow(r(), 1.3) * 10)); return { id: b.id + '-s' + i, bid: b.id, addr: addr(sub), sub, lot: ri(450, 2400) + ' m²', stage: st, zone: pk(ZN), zc, fsr: pk(['0.9:1', '1.5:1', '2.2:1']), ht: pk(['9 m', '11 m', '17 m', '24 m']), pri: pk(['H', 'M', 'L']), who: pk(ag), days: ri(1, 60), next: pk(['Confirm zoning', 'Trace owner', 'Send approach letter', 'Book site meeting', 'Review contract']), sig: pk(['Refusal under review', 'Adjoining lots', 'Expired listing', 'DA lodged']), da: 'DA26/0' + ri(100, 899), x: ri(8, 92), y: ri(10, 90) }; });
+    const listings = Array.from({ length: 12 }, (_, i) => { const sub = pk(b.sub); return { id: b.id + '-l' + i, addr: addr(sub), sub, type: pk(['House', 'Townhouse', 'Unit', 'Land']), price: pk(['$650k to $720k', '$780k to $850k', '$900k to $980k', '$1.1m to $1.2m']), e7: ri(2, 24), e30: ri(10, 80), resp: ri(2, 14), hot: ri(0, 6), dom: ri(3, 70), open: pk(['Sat 10:30', 'Sat 12:00', 'Sun 11:00', 'None set']) }; });
+    const real = b.id === 'pen';
+    const projects = real ? [['Perle', 14, 14, 0, 9.8, '$640k to $860k', 'Penrith'], ['Havenwood Estate', 18, 18, 0, 12.4, '$620k to $790k', 'Glenmore Park'], ['Rodley Square', 9, 8, 1, 6.1, '$700k to $820k', 'Kingswood'], ['Sky Gardens', 11, 11, 0, 8.9, '$760k to $940k', 'Penrith'], ['Eden', 8, 8, 0, 5.6, '$690k to $800k', 'Emu Plains'], ['75 Great Western Highway', 5, 5, 0, 3.8, '$720k to $780k', 'St Marys']].map((p, i) => ({ id: 'pr' + i, n: p[0], tot: p[1], av: p[2], sold: p[3], val: p[4], band: p[5], sub: p[6], enq: ri(4, 30), real: true }))
+      : Array.from({ length: 3 }, (_, i) => { const tot = ri(8, 20), sold = ri(0, 4); return { id: b.id + '-pr' + i, n: pk(['Test Gardens', 'Test Court', 'Test Heights', 'Test Row']) + ' ' + (i + 1), tot, av: tot - sold, sold, val: +(ri(30, 90) / 10).toFixed(1), band: '$600k to $900k', sub: pk(b.sub), enq: ri(4, 30), real: false }; });
+    const meta = Array.from({ length: 8 }, (_, i) => ({ w: 'Wk ' + (40 - 7 + i), leads: ri(28, 72), ttf: ri(8, 90), vault: ri(10, 40), drop: ri(5, 35) }));
+    const tasks = [['Confirm zoning', 'Confirm zoning: ' + sites[0].addr], ['Call back handover', 'Call back ' + convos.find(c => c.human).name], ['Update stock sheet', 'Update stock sheet with new releases'], ['Trace owner', 'Trace owner: ' + sites[1].addr], ['Send approach letter', 'Approach letter: ' + sites[2].addr], ['Confirm inspections', 'Confirm Saturday inspections'], ['Review quality flags', 'Review quality flags from last week'], ['Meta lead follow-up', 'Follow up Meta leads waiting on a call']].map((t, i) => ({ id: b.id + '-t' + i, text: t[1], who: pk(ag), due: ['Today', 'Tomorrow', 'Fri 9 Oct', 'Mon 12 Oct'][i % 4], done: i === 6 }));
+    const alerts = [['high', 'n8n', 'Workflow failed: buyer reply step'], ['med', 'ClickSend', 'Delivery failures above 3% in the last hour'], ['low', 'Quality', 'Duplicate reply detected in 2 conversations'], ['med', 'Vault', 'Daily request quota at 80%'], ['low', 'Buyers', 'Buyer opted out of messages'], ['high', 'Credentials', 'Meta token expires in 5 days'], ['low', 'Quality', 'Postcode sent as message']].map((x, i) => ({ id: b.id + '-a' + i, sev: x[0], src: x[1], msg: x[2], age: ri(1, 40) + ' h', who: null }));
+    const fb = [['Show inspections to confirm on the landing page', 'Buyer Sequencing', 'useful', 'Planned'], ['Map pins should be coloured by priority', 'Map', 'confusing', 'In progress'], ['Reply tone is too pushy for older buyers', 'Buyer Sequencing', 'wrong', 'New'], ['Add export to CSV for handovers', 'Buyer Sequencing', 'useful', 'Done'], ['Explain what Hot means', 'Executive Overview', 'confusing', 'Done'], ['Add suburb filter to the pipeline', 'Development Pipeline', 'useful', 'New']].map((x, i) => ({ id: b.id + '-f' + i, t: x[0], pg: x[1], rt: x[2], st: x[3], v: ri(1, 9), who: pk(ag) }));
+    const fin = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'].map(m => ({ m, rev: ri(180, 420), exp: ri(120, 260) }));
+    const prog = [ri(55, 80), ri(35, 60), ri(15, 40), ri(10, 35), ri(40, 65)];
+    return (this._g[b.id] = { convos, sites, listings, projects, meta, tasks, alerts, fb, fin, prog, STG: ST, ag });
+  };
+
+  ds = (bs) => { const g = bs.map(this.gen), m = (k) => [].concat(...g.map(x => x[k])); return { convos: m('convos'), sites: m('sites'), listings: m('listings'), projects: m('projects'), tasks: m('tasks'), alerts: m('alerts'), fb: m('fb'), fin: g[0].fin.map((f, i) => ({ m: f.m, rev: g.reduce((s, x) => s + x.fin[i].rev, 0), exp: g.reduce((s, x) => s + x.fin[i].exp, 0) })), meta: g[0].meta.map((w, i) => ({ w: w.w, leads: g.reduce((s, x) => s + x.meta[i].leads, 0), ttf: Math.round(g.reduce((s, x) => s + x.meta[i].ttf, 0) / g.length), vault: g.reduce((s, x) => s + x.meta[i].vault, 0), drop: Math.round(g.reduce((s, x) => s + x.meta[i].drop, 0) / g.length) })), prog: [0, 1, 2, 3, 4].map(i => Math.round(g.reduce((s, x) => s + x.prog[i], 0) / g.length)), STG: g[0].STG, n: bs.length }; };
+
+  signIn = (u) => {
+    const sc = u.role === 'platform_admin' ? { c: 'prd', b: 'all' } : { c: u.c, b: u.role === 'company_admin' ? 'all' : u.b };
+    this.setState(st => ({ sess: u, scope: sc, page: u.role === 'platform_admin' ? 'companies' : 'progress', step: 'creds', pw: '', mfa: '', err: '', pending: null, drawer: null, audit: [{ t: '6 Oct, ' + new Date().toTimeString().slice(0, 5), who: u.name, a: 'Sign-in', d: this.ROLE[u.role] + ' sign-in', c: u.c, b: u.b }, ...(st.audit || this.AUDIT0)] }));
+  };
+  tryLogin = (viaMs) => {
+    const st = this.state, u = this.users().find(x => x.email.toLowerCase() === st.email.trim().toLowerCase());
+    if (!u) return this.S({ err: viaMs ? 'Enter the work email first, then choose Microsoft.' : 'No account found for that email. Pick a test account below.' });
+    if (u.status !== 'Active') return this.S({ err: u.status === 'Invited' ? 'This invite has not been accepted yet.' : 'This account is deactivated. Ask your branch admin.' });
+    const co = this.companies().find(c => c.id === u.c);
+    if (viaMs) { if (u.role !== 'platform_admin' && !(co && co.entra)) return this.S({ err: 'Microsoft sign-in is not enabled for ' + (co ? co.name : 'this company') + '. Use the fallback sign-in.' }); return this.signIn(u); }
+    if (!st.pw) return this.S({ err: 'Enter a password.' });
+    if (u.role !== 'platform_admin' && co && co.entra) return this.S({ err: 'Password sign-in is disabled for ' + co.name + ' because Microsoft sign-in is on.' });
+    if (u.mfa) return this.S({ step: 'mfa', err: '', pending: u });
+    this.signIn(u);
+  };
+
+  renderVals() {
+    const s = this.state, u = s.sess, ST = this.ST, self = this;
+    const accounts = ['hamza@remap.ai', 'darren@prd.test', 'lily@penrith.prd.test', 'maya@penrith.prd.test', 'thomas@penrith.prd.test', 'priya@stmarys.prd.test', 'noah@windsor.prd.test', 'elise@harbourline.test'].map(e => { const x = this.SEED_USERS.find(y => y.email === e); return { email: e, role: this.ROLE[x.role] + (x.c ? ' · ' + (x.b || 'all branches') : ''), fill: () => this.S({ email: e, pw: 'demo', err: '', step: 'creds' }) }; });
+    const base = {
+      loggedOut: !u, loggedIn: !!u, accounts, email: s.email, pw: s.pw, mfa: s.mfa, err: s.err, hasErr: !!s.err, stepCreds: s.step === 'creds', stepMfa: s.step === 'mfa', loginTitle: s.step === 'mfa' ? 'Two-step check' : 'Sign in',
+      setEmail: e => this.S({ email: e.target.value }), setPw: e => this.S({ pw: e.target.value }), setMfa: e => this.S({ mfa: e.target.value }),
+      loginPw: () => this.tryLogin(false), loginMs: () => this.tryLogin(true), backToCreds: () => this.S({ step: 'creds', err: '' }),
+      loginMfa: () => { if (!/^\d{6}$/.test(s.mfa.trim())) return this.S({ err: 'Enter 6 digits.' }); this.signIn(s.pending); },
+    };
+    if (!u) return base;
+
+    const role = u.role, isP = role === 'platform_admin', sc = this.eff(s), cos = this.companies();
+    const co = cos.find(c => c.id === sc.c) || cos[0], bs = this.branchesOf(sc), d = this.ds(bs);
+    const dayName = (o) => this.dayLbl(o);
+    const PG = {
+      progress: ['Delivery Progress', 'Overview', 'live', 'all'], exec: ['Executive Overview', 'Overview', 'prototype', 'all'],
+      buyer: ['Buyer Sequencing', 'Departments', 'test', 'pcbma'], listings: ['Listings and Demand', 'Departments', 'test', 'pcbma'], pipeline: ['Development Pipeline', 'Departments', 'test', 'pcbma'], map: ['Map', 'Departments', 'test', 'pcbm'],
+      projects: ['Projects and Stock', 'Departments', 'prototype', 'pcbm'], meta: ['Meta Lead Funnel', 'Departments', 'test', 'pcbm'], pm: ['Property Management', 'Departments', 'planned', 'pcb'], comm: ['Commercial', 'Departments', 'planned', 'pcb'],
+      market: ['Market Insights', 'Insights', 'test', 'pcbm'], finance: ['Finance', 'Insights', 'test', 'pcb'],
+      tasks: ['Activity and Tasks', 'Operate', 'live', 'pcbma'], alerts: ['Alerts and Logs', 'Operate', 'test', 'pcb'], feedback: ['Feedback', 'Operate', 'live', 'all'], sources: ['Data Sources', 'Operate', 'live', 'pcb'],
+      users: ['Users and Roles', 'Admin', 'live', 'pcb'], audit: ['Audit Log', 'Admin', 'live', 'pcb'], settings: ['Settings', 'Admin', 'live', 'pcb'],
+      companies: ['Companies and Branches', 'Platform', 'live', 'p'], pusers: ['Platform Users', 'Platform', 'live', 'p'], paudit: ['Platform Audit', 'Platform', 'live', 'p'],
+    };
+    const rc = { platform_admin: 'p', company_admin: 'c', branch_admin: 'b', marketing: 'm', agent: 'a', viewer: 'v' }[role];
+    const allowed = (k) => PG[k][3] === 'all' || PG[k][3].includes(rc);
+    const items = []; let lastG = '';
+    Object.keys(PG).forEach(k => { if (!allowed(k)) return; if (PG[k][1] !== lastG) { lastG = PG[k][1]; items.push({ isGroup: true, label: lastG }); } const on = s.page === k; items.push({ isItem: true, label: PG[k][0], go: () => this.S({ page: k, drawer: null }), bg: on ? '#FDECEC' : 'transparent', fg: on ? '#B3141B' : '#2B2B33', fw: on ? 500 : 400, dot: ST[PG[k][2]][0] }); });
+
+    const pg = allowed(s.page) ? s.page : null;
+    const tab = (k, def) => s.tab[k] || def;
+    const setTab = (k, v) => () => this.setState(st => ({ tab: { ...st.tab, [k]: v } }));
+    const tabs = (k, list, def) => { const cur = tab(k, def || list[0][0]); return list.map(t => ({ t: t[1], fn: setTab(k, t[0]), bd: cur === t[0] ? '#E41E26' : 'transparent', fg: cur === t[0] ? '#B3141B' : '#747374', fw: cur === t[0] ? 500 : 400 })); };
+    const chips = (label, opts, cur, set) => ({ label, opts: opts.map(o => { const on = String(cur) === String(o[0]); return { t: o[1], fn: () => set(o[0]), bd: on ? '#E41E26' : '#EAEAEF', bg: on ? '#FDECEC' : '#fff', fg: on ? '#B3141B' : '#2B2B33', fw: on ? 500 : 400 }; }) });
+    const act = (t, fn, primary) => ({ t, fn, bg: primary ? '#E41E26' : '#fff', fg: primary ? '#fff' : '#2B2B33', bd: primary ? '#E41E26' : '#EAEAEF' });
+    const blk = (o) => Object.assign({ basis: '100%', hasTitle: !!o.title, hasSub: !!o.sub, pr: o.test ? '28px' : '0', minw: '640px', hasHead: !!(o.head && o.head.length) }, o);
+    const table = (o) => blk({ ...o, isTable: true });
+    const kpi = (label, value, k) => ({ label, value, status: ST[k][3], c: ST[k][0], ink: ST[k][2], test: k === 'test' });
+    const stName = d.STG;
+    const med = (a) => { const x = a.slice().sort((p, q) => p - q); return x.length ? x[Math.floor(x.length / 2)] : 0; };
+    const effInsp = (c) => s.insp[c.id] || c.insp;
+    const effStage = (x) => s.moved[x.id] ?? x.stage;
+    const effZc = (x) => s.zc[x.id] ?? x.zc;
+    const bname = (id) => { for (const c of cos) for (const b of c.branches) if (b.id === id) return b.name; return ''; };
+    const multi = bs.length > 1;
+    const contactMask = (c) => s.rev[c.id] ? '0400 000 ' + c.phone.slice(-3) + ' · ' + c.first.toLowerCase() + '@test.example' : c.phone + ' · ••••@••••';
+    const viewable = (list) => list;
+    let page = { ok: false, hidden: false };
+    const mk = (p, extra) => { const info = PG[p]; const c = ST[info[2]]; const pageTest = extra.test; if (s.liveOnly && pageTest) return { ok: false, hidden: true, title: info[0] }; let bl = extra.blocks || []; if (s.liveOnly) bl = bl.filter(b => !b.test); let kp = extra.kpis || []; if (s.liveOnly) kp = kp.filter(k => !k.test); return { ok: true, hidden: false, title: info[0], sub: extra.sub, btint: c[1], bink: c[2], blabel: c[3], actions: extra.actions || [], hasTabs: !!extra.tabs, tabs: extra.tabs || [], filters: extra.filters || [], hasDds: !!extra.dds, dds: extra.dds || [], toggles: extra.toggles || [], resetFn: extra.resetFn, kpis: kp, hasKpis: kp.length > 0, hasNotice: !!extra.notice, notice: extra.notice, blocks: bl }; };
+
+    const P = {
+      progress: () => {
+        const key = s.scope.b + sc.c + sc.b;
+        const defs = [['Buyer Sequencing', 'live', 'Replies to portal enquiries run in test. Outbound send is held until the inbound rule is set.', 'Release outbound send, 14 Oct', [['Confirm ClickSend inbound rule', 'Lily'], ['Name the contact category', 'Darren']]], ['Development Pipeline', 'prototype', 'Real DAs are loaded. Zoning is still to be confirmed before any priority list.', 'Weekly snapshot view, 16 Oct', [['Confirm zoning on tracker sites', 'Thomas'], ['Choose alert destination', 'Darren']]], ['Marketing Stock', 'waiting', 'Headline figures are loaded from the business analysis until the stock sheet is connected.', 'Connect stock sheet, 20 Oct', [['Read access to projects stock sheet', 'Thomas']]], ['Vault Access', 'waiting', 'Integration is built against the interface. Live data starts when the key arrives.', 'First listings sync, 22 Oct', [['Supply Vault API key via secure link', 'Hamza']]], ['Governance and Reporting', 'prototype', 'Role model, audit trail and sign-in. Fallback sign-in runs until Entra is set up.', 'Entra sign-in on, 24 Oct', [['Share the official logo', 'Lily'], ['Agree hot-buyer definition', 'Darren']]]];
+        const cards = defs.map((x, i) => { const c = ST[x[1]]; return { title: x[0], hasRing: true, pct: d.prog[i], ring: 'conic-gradient(#E41E26 ' + d.prog[i] * 3.6 + 'deg,#EEF0F4 0)', badge: c[3], tint: c[1], ink: c[2], body: x[2], meta: 'Next: ' + x[3], lines: x[4].map((a, j) => { const k = key + i + j, dn = !!s.done[k]; return { text: a[0] + ' (' + a[1] + ')', op: dn ? .5 : 1, td: dn ? 'line-through' : 'none', label: dn ? 'Done' : 'Mark done', bg: dn ? '#E6F6EF' : '#FDECEC', fg: dn ? '#136b49' : '#B3141B', fn: () => this.setState(st => ({ done: { ...st.done, [k]: !st.done[k] } })) }; }) }; });
+        const ms = [['Conversation log connected', '2 Oct', 'done'], ['Pipeline loaded with real DAs', '9 Oct', 'done'], ['Outbound send released', '14 Oct', 'next'], ['Vault listings sync', '22 Oct', 'risk'], ['Entra sign-in for company users', '24 Oct', 'next']];
+        return mk('progress', { sub: 'What is done, what is next, and what we need from you. Day 18 of 30. Next call Wed 2pm AEST.', blocks: [
+          blk({ kind: 'cards', isCards: true, items: cards }),
+          table({ title: '30-day milestones', basis: '420px', rows: ms.map(m => this.row([this.tx(m[0]), this.mu(m[1]), this.bd(m[2])])) }),
+          table({ title: 'This week we shipped', basis: '320px', rows: [['Conversation log now feeds the dashboard'], ['Real DAs loaded into the pipeline'], ['Data-status badges on every widget'], ['Branch and company separation']].map(x => this.row([this.tx(x[0]), this.bt('Recording', () => this.toast('Recording link opens here'))])) }),
+          table({ title: 'Blockers', basis: '320px', rows: [['ClickSend inbound rule not set', 'Lily', '6 days'], ['Contact category not named', 'Darren', '4 days'], ['Alert destination undecided', 'Darren', '3 days']].map(x => this.row([this.tx(x[0]), this.mu(x[1] + ' · ' + x[2])])) }),
+        ] });
+      },
+      exec: () => {
+        const c30 = d.convos.filter(c => !c.test && c.day < 30), c7 = c30.filter(c => c.day < 7);
+        const stock = d.projects.reduce((a, p) => a + p.av, 0), pipe = d.sites.length;
+        const real = bs.some(b => b.id === 'pen');
+        const sub = {}; c30.forEach(c => sub[c.sub] = (sub[c.sub] || 0) + 1);
+        const top = Object.entries(sub).sort((a, b) => b[1] - a[1]).slice(0, 6), mx = top[0] ? top[0][1] : 1;
+        const wk = Array.from({ length: 12 }, (_, i) => ({ label: 'W' + (i + 1), h: 20 + ((i * 37 + d.n * 11) % 90) }));
+        const fun = [['Enquiries', c30.length], ['Replied', c30.filter(c => c.status !== 'Opted out').length], ['Buyer responded', c30.filter(c => c.chat.length > 2).length], ['Inspection offered', c30.filter(c => c.insp !== 'none').length], ['Handed over', c30.filter(c => c.human).length]];
+        return mk('exec', { test: false, sub: 'Every number carries its data status.' + (multi ? ' Combined across ' + bs.length + ' branches.' : ''), kpis: [kpi('Enquiries (7d)', c7.length, 'test'), kpi('Median first response', med(c7.map(c => c.resp)) + ' min', 'test'), kpi('Qualified buyers', c30.filter(c => c.cls !== 'New').length, 'test'), kpi('Hot buyers handed over', c30.filter(c => c.cls === 'Hot' && c.human).length, 'test'), kpi('Sites in pipeline', pipe, real ? 'prototype' : 'test'), kpi('Project stock available', stock, real ? 'prototype' : 'test'), kpi('Meta leads this week', d.meta[7].leads + ' / ' + 100 * d.n, 'test')], blocks: [
+          blk({ kind: 'cols', isCols: true, test: true, basis: '380px', title: 'Enquiry trend, 12 weeks', items: wk }),
+          blk({ kind: 'bars', isBars: true, test: true, basis: '380px', title: 'Top suburbs by demand', items: top.map((t, i) => ({ label: t[0], v: t[1], w: Math.round(t[1] / mx * 100), c: i < 2 ? '#E41E26' : '#F4A3A6' })) }),
+          blk({ kind: 'bars', isBars: true, test: true, basis: '380px', title: 'Pipeline funnel, last 30 days', items: fun.map((t, i) => ({ label: t[0], v: t[1], w: Math.round(t[1] / (fun[0][1] || 1) * 100), c: '#E41E26' })) }),
+          table({ test: true, title: 'Revenue, expenses and forecast', sub: 'Waiting on a finance feed. $ thousands.', basis: '100%', head: ['Month', 'Revenue', 'Expenses', 'Net'], rows: d.fin.map(f => this.row([this.tx(f.m), this.tx(f.rev), this.tx(f.exp), this.tx(f.rev - f.exp, 500)])) }),
+        ] });
+      },
+      buyer: () => {
+        const b = s.bs, t = tab('bs', 'conv'), set = (o) => this.setState(st => ({ bs: { ...st.bs, ...o } }));
+        const all = d.convos.filter(c => b.test || !c.test);
+        const agents = [...new Set(all.map(c => c.agent).filter(Boolean))];
+        const inRange = (c) => b.day !== null ? c.day === b.day : b.range === 'all' ? true : c.day <= (b.range === '0' ? 0 : b.range === '1' ? 1 : +b.range - 1) && (b.range !== '1' || c.day === 1);
+        const f = all.filter(c => inRange(c) && (b.cls === 'all' || c.cls === b.cls) && (b.status === 'all' || c.status === b.status) && (b.agent === 'all' || c.agent === b.agent) && (!b.insp || effInsp(c) === 'to confirm'));
+        const toConf = all.filter(c => effInsp(c) === 'to confirm').length;
+        const clB = { Hot: 'red', Warm: 'prototype', New: 'grey' }, stB = { 'AI replying': 'live', 'Handed over': 'next', Escalated: 'risk', Stopped: 'grey', 'Opted out': 'grey' };
+        const inB = { none: 'grey', offered: 'grey', 'to confirm': 'prototype', confirmed: 'live' };
+        const open = (c) => () => this.S({ drawer: { k: 'buyer', id: c.id } });
+        const days = [0, 1, 2, 3, 4, 5, 6].map(o => [o, dayName(o).replace(/ \d+ \w+/, '') + ' ' + new Date(2026, 9, 6 - o).getDate() + ' · ' + all.filter(c => c.day === o).length]);
+        const convRows = f.map(c => this.row([this.mu(dayName(c.day) + ', ' + c.time), this.tx(c.name, 500), this.tx(c.prop), this.tx(c.src), this.bd(clB[c.cls], c.cls), this.bd(stB[c.status], c.status), this.tx(c.agent || 'AI only'), this.bd(inB[effInsp(c)], effInsp(c) === 'none' ? 'No inspection' : effInsp(c)[0].toUpperCase() + effInsp(c).slice(1))], open(c), c.cls === 'Hot' ? '#FFFAFA' : null));
+        const head = ['When', 'Buyer', 'Property', 'Source', 'Class', 'Status', 'Handled by', 'Inspection'];
+        const tabsL = tabs('bs', [['conv', 'Conversations'], ['funnel', 'Funnel'], ['hand', 'Handovers'], ['quality', 'Quality'], ['settings', 'Settings']]);
+        let blocks = [], filters = [];
+        if (t === 'conv') {
+          filters = [chips('Day', [['all', 'All'], ['0', 'Today'], ['1', 'Yesterday'], ['7', 'Last 7 days'], ['30', 'Last 30 days']], b.day !== null ? '' : b.range, v => set({ range: v, day: null })), chips('Specific day', days, b.day === null ? '' : b.day, v => set({ day: v })), chips('Class', [['all', 'All'], ['Hot', 'Hot'], ['Warm', 'Warm'], ['New', 'New']], b.cls, v => set({ cls: v })), chips('Status', [['all', 'All'], ['AI replying', 'AI replying'], ['Handed over', 'Handed over'], ['Escalated', 'Escalated'], ['Stopped', 'Stopped'], ['Opted out', 'Opted out']], b.status, v => set({ status: v })), chips('Agent', [['all', 'All']].concat(agents.map(a => [a, a])), b.agent, v => set({ agent: v })), chips('Show', [[false, 'Real only'], [true, 'Include test conversations'], ['i', 'Inspections to confirm (' + toConf + ')']], b.insp ? 'i' : b.test, v => v === 'i' ? set({ insp: !b.insp }) : set({ test: v, insp: false }))];
+          blocks = [table({ test: true, title: f.length + ' conversations', sub: 'Click a row to read the AI chat, the handover and the human conversation.', head, rows: convRows, minw: '900px' })];
+        } else if (t === 'funnel') {
+          const n = f.length || 1, cnt = [['Enquiries', f.length], ['In scope', f.filter(c => c.status !== 'Opted out').length], ['Buyer responded', f.filter(c => c.chat.length > 2).length], ['Inspection offered', f.filter(c => effInsp(c) !== 'none').length], ['Inspection confirmed', f.filter(c => effInsp(c) === 'confirmed').length], ['Handed over', f.filter(c => c.human).length]];
+          const rt = f.map(c => c.resp).sort((x, y) => x - y);
+          blocks = [blk({ kind: 'bars', isBars: true, test: true, basis: '460px', title: 'Funnel for the selected days', items: cnt.map(x => ({ label: x[0], v: x[1], w: Math.round(x[1] / n * 100), c: '#E41E26' })) }), table({ test: true, basis: '320px', title: 'Response time', rows: [['Median', med(rt) + ' min'], ['90th percentile', (rt[Math.floor(rt.length * .9)] || 0) + ' min'], ['After-hours share', Math.round(f.filter(c => c.base < 480 || c.base > 1080).length / n * 100) + '%']].map(x => this.row([this.tx(x[0]), this.tx(x[1], 500)])) })];
+        } else if (t === 'hand') {
+          const hs = all.filter(c => c.human);
+          blocks = [table({ test: true, title: 'Per-agent queue', basis: '320px', head: ['Agent', 'Open', 'Referred out'], rows: [...new Set(hs.map(c => c.agent))].map(a => this.row([this.tx(a, 500), this.tx(hs.filter(c => c.agent === a && !s.contacted[c.id]).length), this.tx(hs.filter(c => c.agent === a && c.ref).length)])) }),
+            table({ test: true, title: 'Handovers', basis: '560px', head: ['Buyer', 'Why escalated', 'Handled by', 'Referred to', ''], rows: hs.slice(0, 14).map(c => this.row([this.tx(c.name, 500), this.tx(c.rs.split('Reason: ')[1].split('.')[0]), this.tx(c.agent), this.tx(c.ref || '—'), s.contacted[c.id] ? this.bd('live', 'Contacted') : this.bt('Mark contacted', () => { this.setState(st => ({ contacted: { ...st.contacted, [c.id]: true } })); this.log('Handover contacted', c.name + ' marked contacted'); })], open(c))), minw: '700px' })];
+        } else if (t === 'quality') {
+          blocks = [table({ test: true, title: 'Automatic quality checks', head: ['Check', 'Flags', 'Example'], rows: [['Duplicate reply', 3, 'Same greeting sent twice'], ['Postcode sent as message', 2, 'Reply to "2750"'], ['Price quoted on non-live listing', 1, 'Listing under offer'], ['Preference question asked', 4, 'Asked bedroom count twice'], ['Empty reply', 0, '—']].map(x => this.row([this.tx(x[0]), this.bd(x[1] ? 'prototype' : 'live', String(x[1])), this.mu(x[2])])) })];
+        } else blocks = [table({ title: 'Read-only settings', rows: [['Scope rules', 'Buyers enquiring on live sale listings'], ['Hours', 'AI replies 24 hours; handovers 8 am to 8 pm'], ['Hot-buyer definition', 'Pre-approved and inspection booked within 14 days']].map(x => this.row([this.tx(x[0], 500), this.mu(x[1])])) })];
+        const dd = (label, opts, cur, fn) => ({ label, opts: opts.map(o => ({ v: String(o[0]), t: o[1], sel: String(cur) === String(o[0]) })), fn: e => fn(e.target.value) });
+        const dayOpts = [['r:all', 'All days'], ['r:0', 'Today'], ['r:1', 'Yesterday'], ['r:7', 'Last 7 days'], ['r:30', 'Last 30 days']].concat(days.map(x => ['d:' + x[0], x[1]]));
+        const dds = [dd('Day', dayOpts, b.day !== null ? 'd:' + b.day : 'r:' + b.range, v => v[0] === 'r' ? set({ range: v.slice(2), day: null }) : set({ day: +v.slice(2) })), dd('Class', [['all', 'All classes'], ['Hot', 'Hot'], ['Warm', 'Warm'], ['New', 'New']], b.cls, v => set({ cls: v })), dd('Status', [['all', 'All statuses'], ['AI replying', 'AI replying'], ['Handed over', 'Handed over'], ['Escalated', 'Escalated'], ['Stopped', 'Stopped'], ['Opted out', 'Opted out']], b.status, v => set({ status: v })), dd('Handled by', [['all', 'Anyone']].concat(agents.map(a => [a, a])), b.agent, v => set({ agent: v })), dd('Conversations', [['real', 'Real only'], ['test', 'Include test']], b.test ? 'test' : 'real', v => set({ test: v === 'test' }))];
+        const toggles = [{ t: 'Inspections to confirm (' + toConf + ')', fn: () => set({ insp: !b.insp }), bd: b.insp ? '#E41E26' : '#EAEAEF', bg: b.insp ? '#FDECEC' : '#fff', fg: b.insp ? '#B3141B' : '#2B2B33' }];
+        return mk('buyer', { test: false, sub: 'AI conversations, handovers to people, inspections and quality.', notice: 'Outbound send: held. Showing test conversations.', tabs: tabsL, filters: [], dds: t === 'conv' ? dds : null, toggles, resetFn: () => set({ range: '7', day: null, cls: 'all', status: 'all', agent: 'all', insp: false, test: false }), blocks });
+      },
+      listings: () => mk('listings', { test: true, sub: 'Active listings with enquiries, response time and heat.', blocks: [table({ test: true, title: d.listings.length + ' active listings', head: ['Listing', 'Type', 'Price band', 'Enq 7d', 'Enq 30d', 'Response', 'Hot', 'Days on market', 'Open home'], minw: '900px', rows: d.listings.map(l => this.row([this.tx(l.addr, 500), this.tx(l.type), this.tx(l.price), this.bd(l.e7 > 15 ? 'red' : l.e7 > 8 ? 'prototype' : 'grey', String(l.e7)), this.tx(l.e30), this.tx(l.resp + ' min'), this.tx(l.hot), this.tx(l.dom), this.tx(l.open)], () => this.S({ drawer: { k: 'listing', id: l.id } }))) })] }),
+      pipeline: () => {
+        const pf = s.f.pri || 'all', sites = d.sites.filter(x => pf === 'all' || x.pri === pf);
+        const cols = stName.map((n, si) => { const cards = sites.filter(x => effStage(x) === si).map(x => ({ addr: x.addr, suburb: x.sub, lot: x.lot, zone: effZc(x) ? 'Zoning confirmed' : 'Zoning TBC', ztint: effZc(x) ? '#E6F6EF' : '#FFF5DB', zink: effZc(x) ? '#136b49' : '#8a5d00', pri: 'Priority ' + x.pri, who: x.who.split(' ')[0], days: x.days, start: () => { this.drag = x.id; }, open: () => this.S({ drawer: { k: 'site', id: x.id } }) })); return { name: n, count: cards.length, cards, bg: '#F5F6FA', over: e => e.preventDefault(), drop: e => { e.preventDefault(); const id = this.drag; this.drag = null; if (id) this.moveSite(id, si, d.sites, stName); } }; });
+        return mk('pipeline', { test: true, sub: 'Site detection to sale. Drag cards between stages or click one for detail.', filters: [chips('Priority', [['all', 'All'], ['H', 'High'], ['M', 'Medium'], ['L', 'Low']], pf, v => this.setState(st => ({ f: { ...st.f, pri: v } })))], blocks: [blk({ isKanban: true, test: true, cols })] });
+      },
+      map: () => {
+        const L = s.layers, mv = s.f.mapv || 'street', setF = (o) => this.setState(st => ({ f: { ...st.f, ...o } }));
+        const C = { Penrith: [-33.751, 150.694], 'St Marys': [-33.766, 150.774], Kingswood: [-33.762, 150.723], Werrington: [-33.757, 150.745], 'Cambridge Park': [-33.745, 150.738], 'Emu Plains': [-33.753, 150.668], Jamisontown: [-33.766, 150.686], 'Oxley Park': [-33.744, 150.79], 'Mount Druitt': [-33.768, 150.82], Colyton: [-33.771, 150.795], 'Rooty Hill': [-33.771, 150.843], Minchinbury: [-33.787, 150.837], Windsor: [-33.607, 150.815], Richmond: [-33.597, 150.751], 'McGraths Hill': [-33.619, 150.836], 'Pitt Town': [-33.585, 150.866], Vineyard: [-33.646, 150.85], Clarendon: [-33.607, 150.789], Manly: [-33.797, 151.288], 'Dee Why': [-33.752, 151.286], Brookvale: [-33.766, 151.272], Narrabeen: [-33.714, 151.297], Collaroy: [-33.73, 151.3], Freshwater: [-33.781, 151.288], Cronulla: [-34.057, 151.152], Caringbah: [-34.044, 151.123], Miranda: [-34.034, 151.101], Sutherland: [-34.031, 151.057], Engadine: [-34.065, 151.014], Kirrawee: [-34.034, 151.07] };
+        const geo = (n) => C[n] || [-33.75 + ((n.charCodeAt(0) % 7) - 3) * .01, 150.69 + ((n.charCodeAt(1) % 9) - 4) * .012];
+        const pts = []; bs.forEach(b => b.sub.forEach(n => pts.push({ n, g: geo(n) })));
+        const lats = pts.map(p => p.g[0]), lngs = pts.map(p => p.g[1]);
+        const cLat = (Math.min(...lats) + Math.max(...lats)) / 2, cLng = (Math.min(...lngs) + Math.max(...lngs)) / 2, span = Math.max(Math.max(...lngs) - Math.min(...lngs), (Math.max(...lats) - Math.min(...lats)) * 1.6, .01);
+        const auto = Math.max(8, Math.min(15, Math.floor(Math.log2(900 / 256 * 360 / (span * 1.4))))), z = Math.max(3, Math.min(18, auto + (s.f.mz || 0)));
+        const W = (lat, lng) => { const n = 256 * Math.pow(2, z), sn = Math.sin(lat * Math.PI / 180); return [(lng + 180) / 360 * n, (0.5 - Math.log((1 + sn) / (1 - sn)) / (4 * Math.PI)) * n]; };
+        const [cx, cy] = W(cLat, cLng), tx0 = Math.floor(cx / 256), ty0 = Math.floor(cy / 256), nT = Math.pow(2, z), tiles = [];
+        for (let j = -2; j <= 2; j++) for (let i = -3; i <= 3; i++) { const tx = tx0 + i, ty = ty0 + j; if (ty < 0 || ty >= nT) continue; const tw = ((tx % nT) + nT) % nT; tiles.push({ src: mv === 'sat' ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + z + '/' + ty + '/' + tw : 'https://tile.openstreetmap.org/' + z + '/' + tw + '/' + ty + '.png', l: tx * 256 - cx, t: ty * 256 - cy }); }
+        const colr = (si) => ['#8A8F9C', '#8A8F9C', '#E8A100', '#E8A100', '#E8A100', '#E41E26', '#E41E26', '#1F9D6B', '#1F9D6B', '#1F9D6B'][si], sat = mv === 'sat';
+        const farms = pts.map(p => { const [px, py] = W(p.g[0], p.g[1]), dem = d.convos.filter(c => c.sub === p.n && !c.test).length; return { name: L.farm ? p.n : '', dx: Math.round(px - cx), dy: Math.round(py - cy), sz: L.demand ? 50 + dem * 12 : 8, bg: L.demand ? 'rgba(228,30,38,' + Math.min(.45, .12 + dem * .04) + ')' : 'transparent', col: sat ? '#fff' : '#2B2B33', sh: sat ? '0 1px 3px rgba(0,0,0,.9)' : '0 0 3px #fff,0 0 3px #fff' }; });
+        const pins = L.sites ? d.sites.map(x => { const g = geo(x.sub), [px, py] = W(g[0] + ((x.x % 13) - 6) * .0009, g[1] + ((x.y % 11) - 5) * .0012); return { dx: Math.round(px - cx), dy: Math.round(py - cy), c: colr(effStage(x)), tip: x.addr + ' · ' + stName[effStage(x)], open: () => this.S({ drawer: { k: 'site', id: x.id } }) }; }) : [];
+        const modes = [['street', 'Street'], ['sat', 'Satellite']].map(m => ({ t: m[1], fn: () => setF({ mapv: m[0] }), bg: mv === m[0] ? '#FDECEC' : 'transparent', fg: mv === m[0] ? '#B3141B' : '#2B2B33' }));
+        const tg0 = (k) => () => this.setState(st => ({ layers: { ...st.layers, [k]: !st.layers[k] } }));
+        return mk('map', { test: true, sub: 'Pipeline sites, farm suburbs and buyer demand on a street or satellite base. Site positions are approximate test placements.', filters: [chips('Layers', [['sites', (L.sites ? 'Hide' : 'Show') + ' pipeline sites'], ['farm', (L.farm ? 'Hide' : 'Show') + ' suburb names'], ['demand', (L.demand ? 'Hide' : 'Show') + ' demand heat']], '', k => tg0(k)())], blocks: [blk({ isMap: true, test: true, tileEls: tiles.map((t, i) => React.createElement('img', { key: i, src: t.src, draggable: false, style: { position: 'absolute', left: 'calc(50% + ' + t.l + 'px)', top: 'calc(50% + ' + t.t + 'px)', width: 256, height: 256, display: 'block' } })), farms, pins, modes, zin: () => setF({ mz: (s.f.mz || 0) + 1 }), zout: () => setF({ mz: (s.f.mz || 0) - 1 }), attr: sat ? 'Imagery © Esri' : '© OpenStreetMap contributors', legend: [{ c: '#8A8F9C', t: 'Detected to owner traced' }, { c: '#E8A100', t: 'Approached to negotiation' }, { c: '#E41E26', t: 'Acquired to DA approved' }, { c: '#1F9D6B', t: 'Marketing to settled' }] })] });
+      },
+      mapOld: () => {
+        const L = s.layers, tg = (k) => () => this.setState(st => ({ layers: { ...st.layers, [k]: !st.layers[k] } }));
+        const colr = (si) => ['#8A8F9C', '#8A8F9C', '#E8A100', '#E8A100', '#E8A100', '#E41E26', '#E41E26', '#1F9D6B', '#1F9D6B', '#1F9D6B'][si];
+        const farms = []; bs.forEach((b, bi) => b.sub.forEach((n, i) => { let h = 3; for (const ch of n) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const dem = d.convos.filter(c => c.sub === n && !c.test).length; farms.push({ name: n, x: 10 + (h % 80), y: 14 + ((h >> 5) % 72), sz: 70, dem, bg: '#FDECEC' }); }));
+        const farmsOut = farms.map(f => ({ ...f, name: L.farm ? f.name : '', sz: L.demand ? 70 + f.dem * 14 : 70, bg: L.demand ? 'rgba(228,30,38,' + Math.min(.4, .08 + f.dem * .04) + ')' : (L.farm ? '#EFEFEF' : 'transparent') }));
+        const pins = L.sites ? d.sites.map(x => { const fm = farms.find(f => f.name === x.sub) || { x: x.x, y: x.y }; return { x: Math.min(95, Math.max(5, fm.x + ((x.x % 13) - 6))), y: Math.min(95, Math.max(5, fm.y + ((x.y % 11) - 5))), c: colr(effStage(x)), tip: x.addr + ' · ' + stName[effStage(x)], open: () => this.S({ drawer: { k: 'site', id: x.id } }) }; }) : [];
+        return mk('map', { test: true, sub: 'Pipeline sites, farm suburbs and buyer demand. Schematic layout until real geocoding is connected.', filters: [chips('Layers', [['sites', (L.sites ? 'Hide' : 'Show') + ' pipeline sites'], ['farm', (L.farm ? 'Hide' : 'Show') + ' farm suburbs'], ['demand', (L.demand ? 'Hide' : 'Show') + ' demand heat']], '', k => tg(k)())], blocks: [blk({ isMap: true, test: true, farms: farmsOut, pins, legend: [{ c: '#8A8F9C', t: 'Detected to owner traced' }, { c: '#E8A100', t: 'Approached to negotiation' }, { c: '#E41E26', t: 'Acquired to DA approved' }, { c: '#1F9D6B', t: 'Marketing to settled' }] })] });
+      },
+      projects: () => { const real = bs.some(b => b.id === 'pen'); const tot = d.projects.reduce((a, p) => a + p.tot, 0), sold = d.projects.reduce((a, p) => a + p.sold, 0), val = d.projects.reduce((a, p) => a + p.val, 0); return mk('projects', { test: false, sub: real ? 'Penrith headline figures are loaded from the business analysis until the stock sheet is connected.' : 'Test projects.', kpis: [kpi('Units total', tot, real ? 'prototype' : 'test'), kpi('Units sold', sold, real ? 'prototype' : 'test'), kpi('Stock available', '$' + val.toFixed(1) + 'm', real ? 'prototype' : 'test')], blocks: [table({ test: !real, title: 'Projects', head: ['Project', 'Suburb', 'Units', 'Available', 'Sold', 'Stock value', 'Enquiries', 'Price band'], minw: '780px', rows: d.projects.map(p => this.row([this.tx(p.n, 500), this.tx(p.sub), this.tx(p.tot), this.tx(p.av), this.tx(p.sold), this.tx('$' + p.val.toFixed(1) + 'm'), this.tx(p.enq), this.tx(p.band)], () => this.S({ drawer: { k: 'project', id: p.id } }))) })] }); },
+      meta: () => mk('meta', { test: true, sub: 'Weekly enquiries against a target of 100 per branch, and what happens next.', notice: 'Real reference: 45 Meta leads in 10 days against a target of 100 per week.', blocks: [blk({ isCols: true, test: true, basis: '380px', title: 'Leads per week', items: d.meta.map(w => ({ label: w.w, h: Math.min(130, w.leads * 1.6) })) }), table({ test: true, basis: '480px', title: 'Weekly funnel', head: ['Week', 'Leads', 'vs target', 'First contact', 'To Vault', 'Drop-off'], rows: d.meta.map(w => this.row([this.tx(w.w), this.tx(w.leads, 500), this.bd(w.leads >= 100 * d.n ? 'live' : 'prototype', Math.round(w.leads / (d.n) ) + '%'), this.tx(w.ttf + ' min'), this.tx(w.vault), this.tx(w.drop + '%')])) })] }),
+      pm: () => this.teaser('pm', 'Property Management', [['Arrears tracker', 'Who is behind, how long, and what has been sent.'], ['Inspection and renewal deadlines', 'Never miss a routine inspection or a lease end.'], ['Lost-management survey', 'See why owners leave and win some back.'], ['Landlord health-check pipeline', 'Track every health-check from invite to report.']], 35, 'Nov', mk, act),
+      comm: () => this.teaser('comm', 'Commercial', [['Lease expiry calendar', 'Every commercial lease end in one view.'], ['Enquiry pipeline', 'Tenant and buyer enquiries by stage.'], ['Outgoings tracker', 'Recoveries and variances by property.']], 10, 'Dec', mk, act),
+      market: () => {
+        const rows = [...new Set(d.convos.map(c => c.sub))].map(n => { const cs = d.convos.filter(c => c.sub === n && !c.test), ls = d.listings.filter(l => l.sub === n).length || 1, ss = d.sites.filter(x => x.sub === n).length, recent = cs.filter(c => c.day < 15).length, prev = cs.filter(c => c.day >= 15).length; const hot = cs.length ? Math.round(cs.filter(c => c.cls === 'Hot').length / cs.length * 100) : 0; const score = Math.round(cs.length * 2 + ss * 3 + hot / 5 - ls * 1.5); return { n, enq: cs.length, per: (cs.length / ls).toFixed(1), insp: cs.filter(c => c.insp === 'confirmed').length, hot, ss, tr: recent - prev, score, why: cs.length + ' enquiries, ' + ss + ' pipeline sites, ' + hot + '% hot, ' + ls + ' listings' }; }).sort((a, b) => b.score - a.score);
+        return mk('market', { test: true, sub: 'What is gaining traction, what is cooling, and where to focus. Scores are rule-based and show their inputs.', blocks: [table({ test: true, title: 'Demand by suburb', head: ['Suburb', 'Enquiries', 'Per listing', 'Inspections', 'Hot ratio', 'Trend', 'Focus score', 'Why'], minw: '900px', rows: rows.map(r => this.row([this.tx(r.n, 500), this.tx(r.enq), this.tx(r.per), this.tx(r.insp), this.tx(r.hot + '%'), this.bd(r.tr > 0 ? 'live' : r.tr < 0 ? 'risk' : 'grey', (r.tr > 0 ? 'Gaining +' : r.tr < 0 ? 'Cooling ' : 'Flat ') + (r.tr || '')), this.tx(r.score, 500), this.mu(r.why)])) })] });
+      },
+      finance: () => mk('finance', { test: true, sub: 'Revenue in, expenses out, settlements and forecast. Test figures until a finance feed exists.', actions: [act('Import CSV', () => this.toast('CSV import replaces test figures. Not wired in this prototype.'))], blocks: [blk({ isCols: true, test: true, basis: '420px', title: 'Revenue by month ($ thousands)', items: d.fin.map(f => ({ label: f.m, h: f.rev / 3.4 })) }), table({ test: true, basis: '380px', title: 'Monthly summary', head: ['Month', 'Revenue', 'Expenses', 'Net'], rows: d.fin.map(f => this.row([this.tx(f.m), this.tx(f.rev), this.tx(f.exp), this.tx(f.rev - f.exp, 500)])) }), table({ test: true, title: 'Commission forecast', head: ['Item', 'Expected', 'Timing'], rows: [['Expected settlements', '$' + (d.n * 410) + 'k', 'Next 30 days'], ['Project sales revenue', '$' + (d.n * 240) + 'k', 'Next 60 days'], ['Commission forecast', '$' + (d.n * 128) + 'k', 'Next quarter']].map(x => this.row([this.tx(x[0]), this.tx(x[1], 500), this.mu(x[2])])) })] }),
+      tasks: () => {
+        const t = tab('tk', 'tasks'), flt = s.f.tk || 'open', fm = s.form.task || {};
+        const tasks = d.tasks.concat(s.newTasks.filter(x => bs.some(b => b.id === x.bid))), isD = (x) => s.tdone[x.id] ?? x.done;
+        const list = tasks.filter(x => flt === 'all' || (flt === 'mine' ? x.who === u.name : !isD(x)));
+        const ag = [...new Set(d.convos.map(c => c.agent).filter(Boolean))];
+        const evs = d.convos.filter(c => c.human).slice(0, 6).map(c => [dayName(c.day) + ', ' + c.time, 'Handover', c.agent + ' took ' + c.name]).concat(d.sites.slice(0, 5).map((x, i) => [dayName(i + 1), 'Pipeline', x.who + ' updated ' + x.addr + ' (' + stName[effStage(x)] + ')']), (s.audit || this.AUDIT0).slice(0, 4).map(a => [a.t, a.a, a.who + ': ' + a.d]));
+        return mk('tasks', { test: false, sub: 'Tasks assigned to people, and a stream of what has happened.', tabs: tabs('tk', [['tasks', 'Tasks'], ['stream', 'Activity stream']]), filters: t === 'tasks' ? [chips('Show', [['open', 'Open'], ['mine', 'Mine'], ['all', 'All']], flt, v => this.setState(st => ({ f: { ...st.f, tk: v } })))] : [], blocks: t === 'tasks' ? [
+          blk({ isForm: true, title: 'New task', fields: [{ isInput: true, label: 'Task', ph: 'What needs doing', val: fm.text || '', fn: e => this.setState(st => ({ form: { ...st.form, task: { ...st.form.task, text: e.target.value } } })), basis: '240px' }, { isSel: true, label: 'Assign to', basis: '160px', fn: e => this.setState(st => ({ form: { ...st.form, task: { ...st.form.task, who: e.target.value } } })), opts: ag.map(a => ({ v: a, t: a, sel: (fm.who || ag[0]) === a })) }], submitT: 'Add task', submitFn: () => { if (!fm.text) return this.toast('Enter a task'); this.setState(st => ({ newTasks: [{ id: 'n' + st.newTasks.length, bid: bs[0].id, text: fm.text, who: fm.who || ag[0], due: 'This week', done: false }, ...st.newTasks], form: { ...st.form, task: {} } })); this.log('Task created', fm.text); } }),
+          table({ test: true, title: list.length + ' tasks', head: ['Task', 'Owner', 'Due', 'Status', ''], rows: list.map(x => this.row([this.tx(x.text, 500), this.tx(x.who), this.tx(x.due), isD(x) ? this.bd('live', 'Done') : this.bd('prototype', 'Open'), this.bt(isD(x) ? 'Reopen' : 'Mark done', () => this.setState(st => ({ tdone: { ...st.tdone, [x.id]: !isD(x) } })))])) })] : [table({ test: true, title: 'Activity stream', head: ['When', 'Type', 'Event'], rows: evs.map(e => this.row([this.mu(e[0]), this.bd('grey', e[1]), this.tx(e[2])])) })] });
+      },
+      alerts: () => {
+        const sv = { high: 'risk', med: 'prototype', low: 'grey' }, flt = s.f.al || 'open', ag = [...new Set(d.convos.map(c => c.agent).filter(Boolean))];
+        const list = d.alerts.filter(a => flt === 'all' || !s.ack[a.id]);
+        return mk('alerts', { test: true, sub: 'Workflow failures, integration errors and quality flags. Delivery by email or Teams once a destination is chosen.', tabs: tabs('al', [['alerts', 'Alerts'], ['logs', 'Integration log']]), filters: tab('al', 'alerts') === 'alerts' ? [chips('Show', [['open', 'Unacknowledged'], ['all', 'All']], flt, v => this.setState(st => ({ f: { ...st.f, al: v } })))] : [], blocks: tab('al', 'alerts') === 'alerts' ? [table({ test: true, title: list.length + ' alerts', head: ['Severity', 'Source', 'Alert', 'Age', 'Assigned', '', ''], minw: '760px', rows: list.map(a => this.row([this.bd(sv[a.sev], a.sev === 'med' ? 'Medium' : a.sev[0].toUpperCase() + a.sev.slice(1)), this.tx(a.src), this.tx(a.msg, 500), this.mu(a.age), this.tx(s.assign[a.id] || 'Unassigned'), s.ack[a.id] ? this.bd('live', 'Acknowledged') : this.bt('Acknowledge', () => { this.setState(st => ({ ack: { ...st.ack, [a.id]: true } })); this.log('Alert acknowledged', a.msg); }), this.bt('Assign to me', () => { this.setState(st => ({ assign: { ...st.assign, [a.id]: u.name } })); this.log('Alert assigned', a.msg + ' to ' + u.name); })])) })] : [table({ test: true, title: 'Integration log', sub: 'Business-level events. Technical payloads are visible to platform admins only.', head: ['Time', 'Source', 'Event', 'Correlation ID'], rows: d.alerts.slice(0, 7).map((a, i) => this.row([this.mu('6 Oct, 8:' + (50 - i * 4)), this.tx(a.src), this.tx(a.msg), this.mu('c' + (4821 + i * 17).toString(16) + 'f')])) })] });
+      },
+      feedback: () => {
+        const fm = s.form.fb || {}, all = d.fb.concat(s.newFb.filter(x => bs.some(b => b.id === x.bid))), stB = { New: 'grey', Planned: 'next', 'In progress': 'prototype', Done: 'live' };
+        return mk('feedback', { test: false, sub: 'Tell us what is useful, confusing or wrong. We show what changed.', blocks: [
+          blk({ isForm: true, title: 'Send feedback', fields: [{ isInput: true, label: 'What would you like us to know?', ph: 'e.g. The map should show suburb names', val: fm.text || '', fn: e => this.setState(st => ({ form: { ...st.form, fb: { ...st.form.fb, text: e.target.value } } })), basis: '300px' }, { isSel: true, label: 'Page', basis: '180px', fn: e => this.setState(st => ({ form: { ...st.form, fb: { ...st.form.fb, pg: e.target.value } } })), opts: Object.keys(PG).filter(allowed).map(k => ({ v: PG[k][0], t: PG[k][0], sel: (fm.pg || 'Delivery Progress') === PG[k][0] })) }], submitT: 'Send', submitFn: () => { if (!fm.text) return this.toast('Write a note first'); this.setState(st => ({ newFb: [{ id: 'nf' + st.newFb.length, bid: bs[0].id, t: fm.text, pg: fm.pg || 'Delivery Progress', rt: 'useful', st: 'New', v: 1, who: u.name }, ...st.newFb], form: { ...st.form, fb: {} } })); this.toast('Thanks, feedback sent'); } }),
+          table({ title: 'Feedback', basis: '620px', head: ['Request', 'Page', 'Status', 'Votes', 'Owner', ''], rows: all.map(f => this.row([this.tx(f.t, 500), this.tx(f.pg), this.bd(stB[f.st], f.st), this.tx(f.v + (s.votes[f.id] ? 1 : 0)), this.tx(f.who), this.bt(s.votes[f.id] ? 'Voted' : 'Vote', () => this.setState(st => ({ votes: { ...st.votes, [f.id]: !st.votes[f.id] } })), s.votes[f.id] ? 'live' : null)])), minw: '640px' }),
+          table({ title: 'You said, we did', basis: '300px', rows: all.filter(f => f.st === 'Done').map(f => this.row([this.tx(f.t), this.bd('live', 'Done')])) })] });
+      },
+      sources: () => { const real = bs.some(b => b.id === 'pen'), src = [['Conversation log (n8n)', real ? 'live' : 'planned', 'Irfan', real ? 'Connected' : 'Connect the branch workflow'], ['MRI Vault API', 'waiting', 'Hamza', 'API key via secure credential link'], ['ClickSend', 'waiting', 'Lily', 'Inbound rule and read access'], ['Meta leads sheet', 'waiting', 'Thomas', 'Read-only sheet access'], ['Projects stock sheet', 'waiting', 'Thomas', 'Read-only sheet access'], ['NSW Planning Portal', 'prototype', 'Suffyan', 'Feed connection'], ['RP Data / Cordell', 'waiting', 'Darren', 'Access and cost confirmed'], ['Microsoft Entra ID', co.entra ? 'live' : 'planned', 'Hamza', co.entra ? 'Enabled for this company' : 'App registration in company tenant'], ['Finance feed', 'planned', 'Darren', 'Choose source and give permission']].filter(x => !s.liveOnly || x[1] === 'live'); return mk('sources', { test: false, sub: 'Where each number comes from and what is needed to go live.', blocks: [table({ title: src.length + ' sources', head: ['Source', 'Status', 'Owner', 'Needed to go live', ''], minw: '700px', rows: src.map(x => this.row([this.tx(x[0], 500), this.bd(x[1]), this.tx(x[2]), this.mu(x[3]), ['admin'].length && ['platform_admin', 'branch_admin', 'company_admin'].includes(role) ? this.bt('Test connection', () => this.toast(x[1] === 'live' ? 'Connection OK' : 'Not connected yet: ' + x[3])) : this.mu('')])) })] }); },
+      users: () => this.usersPage(mk, sc, bs, co, role, u, chips, act, tab, tabs),
+      audit: () => {
+        const f = s.f.au || 'all', rows = (s.audit || this.AUDIT0).filter(a => a.c === sc.c && (sc.b === 'all' || a.b === sc.b) || (isP && false)).filter(a => f === 'all' || a.a === f);
+        return mk('audit', { test: false, sub: 'Append-only record of sign-ins, role changes, data reveals and stage moves.', actions: [act('Export CSV', () => { this.toast('Exported ' + rows.length + ' audit rows'); this.log('Export', 'Audit log exported'); })], filters: [chips('Type', [['all', 'All'], ['Sign-in', 'Sign-ins'], ['Role change', 'Role changes'], ['PII reveal', 'Reveals'], ['Stage move', 'Stage moves'], ['Config change', 'Config']], f, v => this.setState(st => ({ f: { ...st.f, au: v } })))], blocks: [table({ title: rows.length + ' events', head: ['When', 'Who', 'Action', 'Detail', 'Branch'], rows: rows.map(a => this.row([this.mu(a.t), this.tx(a.who, 500), this.bd('grey', a.a), this.tx(a.d), this.mu(a.b ? bname(a.b) : 'Company')])), minw: '700px' })] });
+      },
+      settings: () => {
+        const fm = s.form.set || { hours: '8:00 to 20:00', hot: 'Pre-approved and inspection booked within 14 days', dest: 'Email: ops@' + sc.c + '.test' }, T = (k, def) => s.set[k] ?? def, tg = (k, def) => () => { this.setState(st => ({ set: { ...st.set, [k]: !(st.set[k] ?? def) } })); this.log('Config change', k + ' toggled'); };
+        const row = (k, label, desc, def) => ({ label, desc, bg: T(k, def) ? '#1F9D6B' : '#DCDEE2', left: T(k, def) ? 20 : 2, fn: tg(k, def) });
+        const tgl = [row('ooh', 'AI replies outside business hours', 'Buyers get an answer at any time. Handovers wait for staff.', true), row('mfa', 'Require two-step sign-in', 'Applies to every user in this ' + (sc.b === 'all' ? 'company' : 'branch') + '.', true), row('mask', 'Mask buyer phone and email', 'Revealing is logged in the audit log.', true), row('wk', 'Weekly digest to branch admin', 'Feedback and quality flags every Monday.', false)];
+        const rowsT = [{ label: 'Microsoft sign-in (AUTH_ENTRA_ENABLED)', desc: co.entra ? 'On. Password sign-in is disabled for this company.' : 'Off. Users sign in with the fallback email and password.', bg: co.entra ? '#1F9D6B' : '#DCDEE2', left: co.entra ? 20 : 2, fn: () => { if (!['company_admin', 'platform_admin'].includes(role)) return this.toast('Only a company admin can change this'); this.setState(st => ({ companies: this.companies().map(c => c.id === co.id ? { ...c, entra: !c.entra } : c) })); this.log('Config change', 'Entra sign-in ' + (co.entra ? 'disabled' : 'enabled')); } }].concat(tgl);
+        const sf = (k, label) => ({ isInput: true, label, val: fm[k], fn: e => this.setState(st => ({ form: { ...st.form, set: { ...fm, [k]: e.target.value } } })), basis: '240px' });
+        return mk('settings', { test: false, sub: 'Settings for ' + co.name + (sc.b === 'all' ? '' : ' / ' + bs[0].name) + '.', blocks: [blk({ isToggles: true, title: 'Access and behaviour', rows: rowsT, basis: '460px' }), blk({ isForm: true, title: 'Definitions', basis: '460px', fields: [sf('hours', 'Handover hours'), sf('hot', 'Hot-buyer definition'), sf('dest', 'Alert destination')], submitT: 'Save', submitFn: () => { this.log('Config change', 'Definitions saved'); this.toast('Saved'); } })] });
+      },
+      companies: () => {
+        const fm = s.form.co || {}, ub = (cid, bid) => this.users().filter(x => x.c === cid && (bid ? x.b === bid : true)).length;
+        const rows = []; cos.forEach(c => c.branches.forEach(b => { const adm = this.users().find(x => x.b === b.id && x.role === 'branch_admin'); rows.push(this.row([this.tx(c.name, 500), this.tx(b.name), this.tx(adm ? adm.name : 'No admin'), this.tx(ub(c.id, b.id)), this.bd(c.entra ? 'live' : 'grey', c.entra ? 'Microsoft' : 'Fallback'), this.bd(c.status === 'Active' ? 'live' : 'risk', c.status), this.bt('View as', () => { this.setState({ scope: { c: c.id, b: b.id }, page: 'progress' }); this.log('Platform access', 'Opened ' + c.name + ' / ' + b.name); })], () => this.S({ drawer: { k: 'company', id: c.id } }))); }));
+        return mk('companies', { test: false, sub: 'Every company and branch on the platform. Each has its own admin, users and data.', kpis: [kpi('Companies', cos.length, 'live'), kpi('Branches', cos.reduce((a, c) => a + c.branches.length, 0), 'live'), kpi('Users', this.users().length, 'live')], blocks: [
+          table({ title: 'Companies and branches', head: ['Company', 'Branch', 'Branch admin', 'Users', 'Sign-in', 'Status', ''], rows, minw: '760px' }),
+          blk({ isForm: true, title: 'Add a company', fields: [['name', 'Company name', 'e.g. Example Realty'], ['branch', 'First branch', 'e.g. Central'], ['admin', 'Admin email', 'admin@example.test']].map(x => ({ isInput: true, label: x[1], ph: x[2], val: fm[x[0]] || '', basis: '200px', fn: e => this.setState(st => ({ form: { ...st.form, co: { ...st.form.co, [x[0]]: e.target.value } } })) })), submitT: 'Create', submitFn: () => { if (!fm.name || !fm.branch || !fm.admin) return this.toast('Fill in all three fields'); const id = 'c' + cos.length, bid = 'b' + cos.length; this.setState(st => ({ companies: [...this.companies(), { id, name: fm.name, entra: false, status: 'Active', branches: [{ id: bid, name: fm.branch, sub: ['Central', 'North', 'South', 'East', 'West', 'Hill'] }] }], users: [...this.users(), { id: 'u' + this.users().length, name: fm.admin.split('@')[0], email: fm.admin, role: 'branch_admin', c: id, b: bid, status: 'Invited', last: 'Never', mfa: true }], form: { ...st.form, co: {} } })); this.log('Company created', fm.name); this.toast('Company created. Invite sent to ' + fm.admin); } })] });
+      },
+      pusers: () => { const pu = this.users().filter(x => x.role === 'platform_admin'); return mk('pusers', { test: false, sub: 'REMAP staff with access across companies.', blocks: [table({ title: pu.length + ' platform admins', head: ['Name', 'Email', 'Role', 'Last sign-in', 'Two-step'], rows: pu.map(x => this.row([this.tx(x.name, 500), this.tx(x.email), this.bd('red', this.ROLE[x.role]), this.mu(x.last), this.bd('live', 'On')])) })] }); },
+      paudit: () => { const rows = s.audit || this.AUDIT0; return mk('paudit', { test: false, sub: 'Every company and platform event.', blocks: [table({ title: rows.length + ' events', head: ['When', 'Who', 'Action', 'Detail', 'Company'], rows: rows.map(a => this.row([this.mu(a.t), this.tx(a.who, 500), this.bd('grey', a.a), this.tx(a.d), this.mu(a.c ? (cos.find(c => c.id === a.c) || {}).name : 'Platform')])), minw: '700px' })] }); },
+    };
+    page = pg ? P[pg]() : page;
+
+    const dr = s.drawer ? this.drawerFor(s.drawer, d, { s, u, role, effInsp, effStage, effZc, stName, contactMask, act, bname, bs }) : null;
+    const scopeOpts = [];
+    if (isP) cos.forEach(c => { scopeOpts.push({ v: c.id + '|all', t: c.name + ' › All branches', sel: sc.c === c.id && sc.b === 'all' }); c.branches.forEach(b => scopeOpts.push({ v: c.id + '|' + b.id, t: c.name + ' › ' + b.name, sel: sc.c === c.id && sc.b === b.id })); });
+    else if (role === 'company_admin') { scopeOpts.push({ v: co.id + '|all', t: 'All branches', sel: sc.b === 'all' }); co.branches.forEach(b => scopeOpts.push({ v: co.id + '|' + b.id, t: b.name, sel: sc.b === b.id })); }
+    const onPlat = pg && PG[pg][1] === 'Platform';
+    return { ...base, nav: items, page, denied: !pg, companyName: onPlat ? 'Platform' : co.name, branchName: onPlat ? 'REMAP console' : (sc.b === 'all' ? 'All branches' : bs[0].name), userName: u.name, userRole: this.ROLE[role] + (u.b ? ' · ' + bname(u.b) : ''), initials: u.name.split(' ').map(x => x[0]).join('').slice(0, 2), viewingBanner: isP && !onPlat, scopeSelectable: scopeOpts.length > 0 && (isP || role === 'company_admin'), scopeFixed: !(isP || role === 'company_admin'), scopeLabel: co.name + ' › ' + (u.b ? bname(u.b) : 'All branches'), scopeOpts, setScope: e => { const [c, b] = e.target.value.split('|'); this.S({ scope: { c, b } }); },
+      setAll: () => this.S({ liveOnly: false }), setLive: () => this.S({ liveOnly: true }), allBg: s.liveOnly ? 'transparent' : '#fff', allFg: s.liveOnly ? '#747374' : '#2B2B33', liveBg: s.liveOnly ? '#fff' : 'transparent', liveFg: s.liveOnly ? '#2B2B33' : '#747374',
+      signOut: () => { this.log('Sign-out', u.name + ' signed out'); this.S({ sess: null, email: '', drawer: null, page: 'progress' }); }, goFeedback: () => this.S({ page: 'feedback', drawer: null }), hasToast: !!s.toast, toast: s.toast, hasDrawer: !!dr, dr: dr || {}, closeDrawer: () => this.S({ drawer: null }) };
+  }
+
+  moveSite = (id, si, sites, stName) => { const x = sites.find(y => y.id === id); if (!x) return; const from = this.state.moved[id] ?? x.stage; if (from === si) return; this.setState(st => ({ moved: { ...st.moved, [id]: si }, hist: { ...st.hist, [id]: [{ a: this.state.sess.name + ' moved to ' + stName[si], b: 'Just now' }, ...(st.hist[id] || [])] } })); this.log('Stage move', x.addr + ': ' + stName[from] + ' to ' + stName[si]); this.toast('Moved to ' + stName[si]); };
+
+  blk = (o) => Object.assign({ basis: '100%', hasTitle: !!o.title, hasSub: !!o.sub, pr: o.test ? '28px' : '0', minw: '640px', hasHead: !!(o.head && o.head.length) }, o);
+  table = (o) => this.blk({ ...o, isTable: true });
+  teaser = (key, title, feats, pct, month, mk, act) => {
+    const blk = this.blk, table = this.table;
+    const prev = this.state.f[key];
+    return mk(key, { test: false, sub: 'Coming next.', actions: [act(prev ? 'Hide preview' : 'Preview with test data', () => this.setState(st => ({ f: { ...st.f, [key]: !st.f[key] } })), true), act('Request priority', () => { this.setState(st => ({ newFb: [{ id: 'p' + st.newFb.length, bid: this.state.sess.b || 'pen', t: 'Please prioritise ' + title, pg: title, rt: 'useful', st: 'New', v: 1, who: this.state.sess.name }, ...st.newFb] })); this.toast('Request sent to Feedback'); })], blocks: [blk({ isCards: true, title: 'What you will get', items: feats.map(f => ({ title: f[0], hasRing: false, badge: 'Planned', tint: '#EEF0F4', ink: '#5d6270', body: f[1], meta: 'Target ' + month + ' 2026 · ' + pct + '% designed', lines: [] })) })].concat(prev ? [blk({ isTable: true, test: true, title: 'Preview', head: ['Item', 'Owner', 'Due', 'Status'], hasHead: true, minw: '480px', rows: feats.map((f, i) => this.row([this.tx(f[0] + ' item ' + (i + 1), 500), this.tx('Test Owner ' + (i + 1)), this.mu('In ' + (i + 2) + ' days'), this.bd(i % 2 ? 'prototype' : 'live', i % 2 ? 'Due soon' : 'On track')])) })] : []) });
+  };
+
+  usersPage = (mk, sc, bs, co, role, u, chips, act, tab, tabs) => {
+    const blk = this.blk, table = this.table;
+    const s = this.state, fm = s.form.inv || {}, pick = role === 'platform_admin' ? Object.keys(this.ROLE) : role === 'company_admin' ? ['company_admin', 'branch_admin', 'marketing', 'agent', 'viewer'] : ['branch_admin', 'marketing', 'agent', 'viewer'];
+    const roles = pick.filter(r => r !== 'platform_admin' || role === 'platform_admin');
+    const vis = this.users().filter(x => x.c === sc.c && (sc.b === 'all' || x.b === sc.b || x.role === 'company_admin' && role !== 'branch_admin')), stB = { Active: 'live', Invited: 'prototype', Deactivated: 'risk' };
+    const bsel = (role === 'branch_admin') ? [{ v: u.b, t: bs[0].name, sel: true }] : co.branches.map(b => ({ v: b.id, t: b.name, sel: (fm.b || co.branches[0].id) === b.id }));
+    return mk('users', { test: false, sub: 'People in ' + co.name + (sc.b === 'all' ? '' : ' / ' + bs[0].name) + '. Roles are enforced on the server for every request.', blocks: [
+      table({ title: vis.length + ' users', head: ['Name', 'Email', 'Role', 'Branch', 'Status', 'Last sign-in'], minw: '760px', rows: vis.map(x => this.row([this.tx(x.name, 500), this.tx(x.email), this.bd('grey', this.ROLE[x.role]), this.tx(x.b ? bs.concat(co.branches).find(b => b.id === x.b).name : 'All branches'), this.bd(stB[x.status], x.status), this.mu(x.last)], () => this.S({ drawer: { k: 'user', id: x.id } }))) }),
+      blk({ isForm: true, title: 'Invite a user', fields: [{ isInput: true, label: 'Email', ph: 'name@company.test', val: fm.email || '', basis: '220px', fn: e => this.setState(st => ({ form: { ...st.form, inv: { ...st.form.inv, email: e.target.value } } })) }, { isSel: true, label: 'Role', basis: '150px', fn: e => this.setState(st => ({ form: { ...st.form, inv: { ...st.form.inv, r: e.target.value } } })), opts: roles.map(r => ({ v: r, t: this.ROLE[r], sel: (fm.r || 'agent') === r })) }, { isSel: true, label: 'Branch', basis: '150px', fn: e => this.setState(st => ({ form: { ...st.form, inv: { ...st.form.inv, b: e.target.value } } })), opts: bsel }], submitT: 'Send invite', submitFn: () => { if (!fm.email) return this.toast('Enter an email'); const r = fm.r || 'agent'; this.setState(st => ({ users: [...this.users(), { id: 'u' + this.users().length, name: fm.email.split('@')[0], email: fm.email, role: r, c: co.id, b: r === 'company_admin' ? null : (role === 'branch_admin' ? u.b : fm.b || co.branches[0].id), status: 'Invited', last: 'Never', mfa: true }], form: { ...st.form, inv: {} } })); this.log('User invited', fm.email + ' as ' + this.ROLE[r]); this.toast('Invite sent to ' + fm.email); } }),
+      table({ title: 'What each role can do', basis: '100%', head: ['Role', 'Sees', 'Can do'], rows: [['Company admin', 'All branches in the company', 'Manage branch admins and users, sign-in settings'], ['Branch admin', 'Their branch only', 'Manage branch users, settings, data sources'], ['Marketing', 'Marketing, pipeline, Meta funnel, buyers', 'Edit pipeline, tasks, promote leads'], ['Sales agent', 'Buyers, listings, pipeline (read)', 'Mark contacted, confirm inspections'], ['Viewer', 'Delivery progress and overview', 'Read only']].map(x => this.row([this.tx(x[0], 500), this.tx(x[1]), this.mu(x[2])])), minw: '640px' })] });
+  };
+
+  drawerFor = (dw, d, X) => {
+    const { s, u, role, effInsp, effStage, effZc, stName, contactMask, act, bname } = X, ST = this.ST;
+    const badge = (k, t) => ({ t: t || ST[k][3], tint: ST[k][1], ink: ST[k][2] });
+    const mkAct = (t, fn, p) => act(t, fn, p);
+    if (dw.k === 'buyer') {
+      const c = d.convos.find(x => x.id === dw.id); if (!c) return null;
+      const ins = effInsp(c), isOnly = !c.human;
+      const bub = (m) => m.who === 'buyer' ? { who: c.name, tag: 'Buyer', align: 'flex-start', bg: '#fff', bd: '1px solid #EAEAEF' } : { who: 'AI agent', tag: 'AI', align: 'flex-end', bg: '#F5F6FA', bd: '1px solid #F5F6FA' };
+      const hb = (m) => m.kind === 'in' ? { tag: 'From buyer', align: 'flex-start', bg: '#fff', bd: '1px solid #EAEAEF' } : m.kind === 'out' ? { tag: 'To buyer', align: 'flex-end', bg: '#FDECEC', bd: '1px solid #FDECEC' } : m.kind === 'int' ? { tag: 'Internal note', align: 'center', bg: '#FFF5DB', bd: '1px dashed #E8A100' } : { tag: 'System', align: 'center', bg: '#F5F6FA', bd: '1px solid #F5F6FA' };
+      const sec = [
+        { h: 'Inquiry details', isKv: true, items: [{ k: 'Property', v: c.prop }, { k: 'Source', v: c.src }, { k: 'Received', v: this.dayLbl(c.day) + ', ' + c.time }, { k: 'Contact', v: contactMask(c) }, { k: 'Purpose', v: c.fields.use }, { k: 'Budget', v: c.fields.budget }, { k: 'Bedrooms', v: c.fields.beds }, { k: 'Timeframe', v: c.fields.when }, { k: 'Finance', v: c.fields.fin }, { k: 'Consent to message', v: c.status === 'Opted out' ? 'Withdrawn' : 'Given' }, { k: 'Branch', v: c.bn }, { k: 'Vault contact', v: c.human ? 'Created' : 'Not yet' }] },
+        { h: 'Inspection', isKv: true, items: [{ k: 'Status', v: ins === 'none' ? 'None offered' : ins[0].toUpperCase() + ins.slice(1) }, { k: 'Proposed time', v: ins === 'none' ? '—' : 'Sat 10 Oct, 10:30 am' }] },
+        { h: 'AI agent conversation', isChat: true, items: c.chat.map(m => ({ ...bub(m), text: m.text, t: m.t })) },
+        { h: 'Handover', isKv: true, items: isOnly ? [{ k: 'Status', v: 'Not handed over. AI is ' + c.status.toLowerCase() + '.' }] : [{ k: 'Reason', v: c.rs.split('Reason: ')[1].split('.')[0] }, { k: 'Handled by', v: c.agent }, { k: 'Referred to', v: c.ref || 'Not referred' }, { k: 'Contacted', v: s.contacted[c.id] ? 'Yes' : 'Not yet' }] },
+      ];
+      if (!isOnly) sec.push({ h: 'Human conversation and internal notes', isChat: true, items: c.hum.map(m => ({ ...hb(m), who: m.who, text: m.text, t: m.t })) });
+      return { title: c.name, sub: c.prop, badges: [badge(c.cls === 'Hot' ? 'red' : c.cls === 'Warm' ? 'prototype' : 'grey', c.cls), badge(c.human ? 'next' : 'live', c.status), badge('test')], sections: sec, actions: [
+        s.rev[c.id] ? mkAct('Contact revealed', () => {}) : mkAct('Reveal contact', () => { this.setState(st => ({ rev: { ...st.rev, [c.id]: true } })); this.log('PII reveal', 'Revealed contact for ' + c.name); }),
+        ...(ins === 'to confirm' ? [mkAct('Confirm inspection', () => { this.setState(st => ({ insp: { ...st.insp, [c.id]: 'confirmed' } })); this.log('Inspection confirmed', c.name + ' at ' + c.prop); this.toast('Inspection confirmed'); }, true)] : []),
+        ...(c.human && !s.contacted[c.id] ? [mkAct('Mark contacted', () => { this.setState(st => ({ contacted: { ...st.contacted, [c.id]: true } })); this.log('Handover contacted', c.name); })] : []),
+        mkAct('Reply was good', () => this.toast('Thanks, rated good')), mkAct('Reply was not good', () => this.toast('Rated not good. Add a reason in Feedback.'))] };
+    }
+    if (dw.k === 'site') {
+      const x = d.sites.find(y => y.id === dw.id); if (!x) return null; const si = effStage(x), zc = effZc(x);
+      return { title: x.addr, sub: stName[si] + ' · ' + x.days + ' days in stage', badges: [badge(zc ? 'live' : 'prototype', zc ? 'Zoning confirmed' : 'Confirm before acting'), badge('grey', 'Priority ' + x.pri), badge('test')], actions: [...(!zc ? [mkAct('Confirm zoning', () => { this.setState(st => ({ zc: { ...st.zc, [x.id]: true }, hist: { ...st.hist, [x.id]: [{ a: u.name + ' confirmed zoning', b: 'Just now' }, ...(st.hist[x.id] || [])] } })); this.log('Config change', 'Zoning confirmed: ' + x.addr); }, true)] : []), ...(si < 9 ? [mkAct('Advance stage', () => this.moveSite(x.id, si + 1, d.sites, stName))] : [])], sections: [
+        { h: 'Site', isKv: true, items: [{ k: 'Suburb', v: x.sub }, { k: 'Lot size', v: x.lot }, { k: 'Assignee', v: x.who }, { k: 'Next step', v: x.next }, { k: 'Signal', v: x.sig }, { k: 'DA reference', v: x.da }] },
+        { h: 'Planning', isKv: true, items: [{ k: 'Zoning', v: x.zone + (zc ? '' : ' (TBC)') }, { k: 'Source', v: 'Spatial Viewer' }, { k: 'FSR', v: x.fsr }, { k: 'Height', v: x.ht }] },
+        { h: 'Owner trace', isList: true, items: [{ a: 'ABN lookup', b: si >= 2 ? 'Verified' : 'Pending' }, { a: 'ASIC extract', b: si >= 2 ? 'Verified' : 'Pending' }, { a: 'Cordell', b: 'Waiting on access' }, { a: 'iD4Me', b: si >= 3 ? 'Matched' : 'Pending' }] },
+        { h: 'Activity history', isList: true, items: (s.hist[x.id] || []).concat([{ a: 'Site detected from ' + x.sig.toLowerCase(), b: x.days + ' days ago' }, { a: 'Added to pipeline by ' + x.who, b: x.days + ' days ago' }]) }] };
+    }
+    if (dw.k === 'listing') { const l = d.listings.find(y => y.id === dw.id); if (!l) return null; return { title: l.addr, sub: l.type + ' · ' + l.price, badges: [badge('test')], actions: [], sections: [{ h: 'Demand', isKv: true, items: [{ k: 'Enquiries 7d', v: l.e7 }, { k: 'Enquiries 30d', v: l.e30 }, { k: 'Median response', v: l.resp + ' min' }, { k: 'Hot buyers', v: l.hot }, { k: 'Days on market', v: l.dom }, { k: 'Next open home', v: l.open }] }] }; }
+    if (dw.k === 'project') { const p = d.projects.find(y => y.id === dw.id); if (!p) return null; return { title: p.n, sub: p.sub, badges: [p.real ? badge('prototype', 'From business analysis') : badge('test')], actions: [], sections: [{ h: 'Stock', isKv: true, items: [{ k: 'Units', v: p.tot }, { k: 'Available', v: p.av }, { k: 'Sold', v: p.sold }, { k: 'Stock value', v: '$' + p.val.toFixed(1) + 'm' }, { k: 'Enquiries', v: p.enq }, { k: 'Price band', v: p.band }] }] }; }
+    if (dw.k === 'user') {
+      const x = this.users().find(y => y.id === dw.id); if (!x) return null; const rl = role === 'platform_admin' ? Object.keys(this.ROLE) : role === 'company_admin' ? ['company_admin', 'branch_admin', 'marketing', 'agent', 'viewer'] : ['branch_admin', 'marketing', 'agent', 'viewer'];
+      const upd = (o, msg) => { this.setState(st => ({ users: this.users().map(y => y.id === x.id ? { ...y, ...o } : y) })); this.log(msg.a, msg.d); };
+      const self = x.id === u.id;
+      return { title: x.name, sub: x.email, badges: [badge('grey', this.ROLE[x.role]), badge(x.status === 'Active' ? 'live' : x.status === 'Invited' ? 'prototype' : 'risk', x.status)], actions: [self ? mkAct('This is you', () => {}) : mkAct(x.status === 'Deactivated' ? 'Reactivate' : 'Deactivate', () => upd({ status: x.status === 'Deactivated' ? 'Active' : 'Deactivated' }, { a: 'Role change', d: x.name + ' ' + (x.status === 'Deactivated' ? 'reactivated' : 'deactivated') })), mkAct('Reset password', () => { this.log('Config change', 'Password reset for ' + x.name); this.toast('Reset link sent'); }), mkAct(x.mfa ? 'Require two-step: on' : 'Require two-step: off', () => upd({ mfa: !x.mfa }, { a: 'Config change', d: 'Two-step toggled for ' + x.name })), ...(self ? [] : rl.filter(r => r !== x.role).map(r => mkAct('Set role: ' + this.ROLE[r], () => upd({ role: r, b: r === 'company_admin' || r === 'platform_admin' ? null : (x.b || u.b || this.companies().find(c => c.id === x.c).branches[0].id) }, { a: 'Role change', d: x.name + ' set to ' + this.ROLE[r] }))))], sections: [
+        { h: 'Account', isKv: true, items: [{ k: 'Company', v: (this.companies().find(c => c.id === x.c) || { name: 'Platform' }).name }, { k: 'Branch', v: x.b ? bname(x.b) : 'All branches' }, { k: 'Last sign-in', v: x.last }, { k: 'Two-step', v: x.mfa ? 'On' : 'Off' }] },
+        { h: 'Change role', isList: true, items: rl.filter(r => r !== x.role && !self).map(r => ({ a: this.ROLE[r], b: '' })) }].filter(sc => sc.h !== 'Change role') .concat([{ h: 'Role', isKv: true, items: [{ k: 'Current', v: this.ROLE[x.role] }] }]), extraRoles: rl };
+    }
+    if (dw.k === 'company') {
+      const c = this.companies().find(y => y.id === dw.id); if (!c) return null;
+      return { title: c.name, sub: c.branches.length + ' branches', badges: [badge(c.status === 'Active' ? 'live' : 'risk', c.status), badge(c.entra ? 'live' : 'grey', c.entra ? 'Microsoft sign-in' : 'Fallback sign-in')], actions: [mkAct(c.status === 'Active' ? 'Suspend company' : 'Reactivate', () => { this.setState(st => ({ companies: this.companies().map(y => y.id === c.id ? { ...y, status: y.status === 'Active' ? 'Suspended' : 'Active' } : y) })); this.log('Config change', c.name + ' status changed'); })], sections: [{ h: 'Branches', isList: true, items: c.branches.map(b => ({ a: b.name, b: (this.users().find(x => x.b === b.id && x.role === 'branch_admin') || { name: 'No admin' }).name + ' · ' + this.users().filter(x => x.b === b.id).length + ' users' })) }, { h: 'Company admins', isList: true, items: this.users().filter(x => x.c === c.id && x.role === 'company_admin').map(x => ({ a: x.name, b: x.email })) }] };
+    }
+    return null;
+  };
+}
+</script>
+</body>
+</html>
