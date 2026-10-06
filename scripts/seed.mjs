@@ -79,6 +79,14 @@ if (!prog) {
     ["Buyer Sequencing", "milestone", "Outbound send released", null, "next"],
     ["Buyer Sequencing", "milestone", "Vault listings sync", null, "next"],
     ["Platform", "milestone", "Entra sign-in for company users", null, "next"],
+    ["Development Pipeline", "ask", "Name who runs the Monday playbook at PRD", "Darren", "Next week"],
+    ["Development Pipeline", "ask", "Agree the ownership hold-period rule", "Darren", "Next week"],
+    ["Development Pipeline", "shipped", "Pipeline board, table and weekly snapshot with zoning confirmation", null, null],
+    ["Development Pipeline", "shipped", "Fields we are building towards shown as data under testing", null, null],
+    ["Development Pipeline", "blocker", "RP Data and Cordell access and cost not confirmed", "Darren with Cotality", "Open"],
+    ["Development Pipeline", "milestone", "Weekly feed from the NSW Planning Portal", null, "next"],
+    ["Development Pipeline", "milestone", "Owner and director trace recorded on each site", null, "next"],
+    ["Development Pipeline", "milestone", "Monday report run by a PRD team member", null, "next"],
   ];
   for (const [project, kind, text, owner, due] of items) {
     await q(`insert into progress_items (project, kind, text, owner, due) values ($1,$2,$3,$4,$5)`, [project, kind, text, owner, due]);

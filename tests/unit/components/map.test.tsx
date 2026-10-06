@@ -69,7 +69,7 @@ describe("MapView", () => {
     const site = gl.markers.find((m) => m.element.title.startsWith("84 Cox"))!;
     expect(site.lngLat).toEqual([150.69, -33.75]);
     expect((site.element as HTMLAnchorElement).getAttribute("href")).toBe("/pipeline?tab=board&site=1");
-    expect(gl.markers.find((m) => m.element.title.includes("Sample St"))!.element.title).toContain("sample");
+    expect(gl.markers.find((m) => m.element.title.includes("Sample St"))!.element.title).toContain("data under testing");
     expect(gl.markers.find((m) => m.element.title === "Penrith: 4 enquiries")!.element.textContent).toBe("4");
     expect(gl.markers.find((m) => m.element.title === "Listing: 1 Real St")).toBeDefined();
   });

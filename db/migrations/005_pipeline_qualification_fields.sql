@@ -1,0 +1,9 @@
+alter table pipeline_sites add column if not exists lga text;
+alter table pipeline_sites add column if not exists applicant text;
+alter table pipeline_sites add column if not exists abn text;
+alter table pipeline_sites add column if not exists contact_found text;
+alter table pipeline_sites add column if not exists ownership_signal text;
+alter table pipeline_sites add column if not exists hold_years int;
+alter table pipeline_sites add column if not exists fsr text;
+alter table pipeline_sites add column if not exists height_m text;
+alter table pipeline_sites add column if not exists zoning_source text;

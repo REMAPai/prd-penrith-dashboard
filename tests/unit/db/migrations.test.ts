@@ -119,6 +119,26 @@ describe("scripts/seed.mjs", () => {
   });
 });
 
+describe("scripts/seed-demo-sites.mjs", () => {
+  const demo = readFileSync(join(root, "scripts", "seed-demo-sites.mjs"), "utf8");
+
+  it("only ever touches sample rows and runs in a transaction", () => {
+    expect(demo).toContain("delete from pipeline_sites where is_sample = true");
+    expect(demo).not.toMatch(/delete from pipeline_sites(?! where is_sample = true)/);
+    expect(demo.indexOf('"begin"')).toBeGreaterThan(-1);
+    expect(demo.indexOf('"commit"')).toBeGreaterThan(demo.indexOf('"begin"'));
+    expect(demo).toContain('"rollback"');
+    expect(demo).toContain("is_sample");
+    expect(demo).toMatch(/\$21,'Data under testing'[^)]*true,/);
+  });
+
+  it("labels the source and uses invented names only", () => {
+    expect(demo).toContain("'Data under testing'");
+    expect(demo).not.toMatch(/Darren|Latty|Thomas|Masters|Hatch/);
+    expect(demo).toMatch(/Sample Build Co Pty Ltd/);
+  });
+});
+
 describe("scripts/migrate.mjs", () => {
   async function run(applied: string[], failOn?: string) {
     vi.resetModules();

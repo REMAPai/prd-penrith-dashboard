@@ -103,16 +103,20 @@ describe("every page x every role", () => {
 });
 
 describe("pipeline page", () => {
-  it("reads only the active branch's real (non-sample) sites and carries no sample notice", async () => {
+  it("reads the active branch's sites and labels invented rows as Data under testing", async () => {
     as("branch_admin");
     const html = await renderPage(Pipeline, sp({ tab: "table" }));
     const call = callsMatching(/from pipeline_sites where branch_id/)[0];
     expect(call[1]).toEqual(["pen"]);
-    expect(call[0]).toContain("is_sample = false");
     expect(html).toContain("84 Cox Avenue");
-    expect(html).not.toContain("Rows marked Sample");
-    expect(html).toContain("Sites in pipeline");
-    expect(html).not.toContain("incl. sample");
+    expect(html).toContain("9 Sample Street");
+    expect(html).toContain("Rows marked Data under testing");
+    expect(html).toContain("Data under testing</span>");
+    expect(html).toContain("Under active development");
+    expect(html).toContain("Needs your input");
+    expect(html).toContain("Being built");
+    expect(html).toContain('href="/progress"');
+    expect(html).toContain("Sites in pipeline (incl. data under testing)");
   });
 
   it("hides sample rows entirely in Live only mode", async () => {
@@ -121,7 +125,7 @@ describe("pipeline page", () => {
     const html = await renderPage(Pipeline, sp({ tab: "table" }));
     expect(html).toContain("84 Cox Avenue");
     expect(html).not.toContain("9 Sample Street");
-    expect(html).not.toContain("Rows marked Sample");
+    expect(html).not.toContain("Rows marked Data under testing");
   });
 
   it("opens the drawer for a site, with move and zoning forms for editors only", async () => {
