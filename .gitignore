@@ -6,3 +6,5 @@ node_modules/
 design/*.zip
 .next/
 .env.local
+env*
+!.env.example
