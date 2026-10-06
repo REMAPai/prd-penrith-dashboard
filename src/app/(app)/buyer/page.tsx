@@ -8,6 +8,8 @@ import { canRevealPii } from "@/lib/roles";
 import type { Conversation } from "@/lib/data/types";
 
 const median = (a: number[]) => { const x = [...a].sort((p, q) => p - q); return x.length ? x[Math.floor(x.length / 2)] : 0; };
+const overdue = (c: Conversation) => c.readyForAgent && c.handoffStatus === "pending" && !!c.slaDueAt && new Date(c.slaDueAt).getTime() < nowMs();
+const replyMins = (c: Conversation) => { const t = c.turns[0]; return t?.replyAt ? Math.max(0, (new Date(t.replyAt).getTime() - new Date(t.at).getTime()) / 60000) : null; };
 const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : "grey");
 const INSP: Record<string, string> = { not_discussed: "Not discussed", offered_not_answered: "Offered", asked_about_it: "Buyer asked", booked: "Booked" };
 
@@ -32,6 +34,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
     ["Enquiries", rows.length],
     ["Buyer replied", rows.filter((c) => c.turns.length > 1).length],
     ["Inspection offered or booked", rows.filter((c) => c.inspection !== "not_discussed").length],
+    ["Handed over and confirmed", rows.filter((c) => c.handoffStatus === "done").length],
     ["Hot", rows.filter((c) => c.temperature === "Hot").length],
   ] as [string, number][];
 
@@ -45,6 +48,8 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         <Kpi label="After hours" value={week.filter((c) => c.afterHours).length} status={st} />
         <Kpi label="Hot buyers" value={rows.filter((c) => c.temperature === "Hot").length} status={st} />
         <Kpi label="Median turns per chat" value={median(rows.map((c) => c.turns.length))} status={st} />
+        <Kpi label="Median first reply (min)" value={Math.round(median(rows.map(replyMins).filter((m): m is number => m !== null)))} status={st} />
+        <Kpi label="Handoffs past deadline" value={rows.filter(overdue).length} status={st} />
       </div>
       <Tabs base="/buyer" current={tab} tabs={[["conversations", "Conversations"], ["funnel", "Funnel"], ["handovers", "Handovers"], ["quality", "Quality"]]} />
 
