@@ -4,17 +4,17 @@ import { dbRows } from "./helpers";
 
 test.skip(!HAS_DB, SKIP_MESSAGE);
 
-const OPEN = "/buyer?tab=conversations&c=sample-pen-0";
+const OPEN = "/buyer?tab=conversations&c=e2e-pen-0";
 
 test.describe("buyer conversations (read only)", () => {
   test.use({ storageState: stateFile("agent") });
 
-  test("the list is labelled sample, with a table of conversations and Hot/Warm badges", async ({ page }) => {
+  test("the list shows real conversations from the dashboard database, with no sample ribbon", async ({ page }) => {
     await page.goto("/buyer");
-    await expect(page.locator(".ribbon").first()).toBeVisible();
-    await expect(page.getByText("Showing sample conversations")).toBeVisible();
+    await expect(page.locator(".ribbon")).toHaveCount(0);
+    await expect(page.getByText("Real conversations from the conversation log")).toBeVisible();
     await expect(page.locator("table.t tbody tr").first()).toBeVisible();
-    await expect(page.getByText("Sample Buyer 01")).toBeVisible();
+    await expect(page.getByText("E2E Buyer")).toBeVisible();
   });
 
   test("every tab renders", async ({ page }) => {
@@ -28,10 +28,10 @@ test.describe("buyer conversations (read only)", () => {
     await page.goto(OPEN);
     const drawer = page.locator(".drawer");
     await expect(drawer).toBeVisible();
-    await expect(drawer).toContainText("Sample Buyer 01");
+    await expect(drawer).toContainText("E2E Buyer");
     await expect(drawer).toContainText("Is this still available?");
     await expect(drawer).not.toContainText("0400 000 000");
-    await expect(drawer).not.toContainText("sample@example.test");
+    await expect(drawer).not.toContainText("e2e-buyer@example.test");
     await expect(drawer).toContainText("•••");
     await expect(drawer.getByRole("link", { name: "Reveal" })).toBeVisible();
   });
@@ -51,7 +51,7 @@ test.describe("WRITES DATA: revealing contact details (adds a PII reveal audit r
     await page.goto(OPEN);
     await page.locator(".drawer").getByRole("link", { name: "Reveal" }).click();
     await expect(page.locator(".drawer")).toContainText("0400 000 000");
-    await expect(page.locator(".drawer")).toContainText("sample@example.test");
+    await expect(page.locator(".drawer")).toContainText("e2e-buyer@example.test");
     await expect(page.locator(".drawer").getByRole("link", { name: "Reveal" })).toHaveCount(0);
     const after = (await dbRows("select count(*)::int as n from audit_log where action = 'PII reveal' and actor_email = $1", [emailOf("agent")]))[0].n;
     expect(after).toBeGreaterThan(before);

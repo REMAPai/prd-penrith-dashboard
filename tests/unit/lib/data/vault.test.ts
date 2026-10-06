@@ -42,22 +42,25 @@ const prop = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-describe("getListings: sample paths", () => {
-  it("returns sample data for other branches without calling Vault", async () => {
+describe("getListings: not-connected paths", () => {
+  it("is waiting with no data for other branches without calling Vault", async () => {
     cfg();
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
     const r = await getListings("bm", []);
-    expect(r.status).toBe("sample");
-    expect(r.data.every((l) => l.id.startsWith("sample-"))).toBe(true);
+    expect(r.status).toBe("waiting");
+    expect(r.data).toEqual([]);
+    expect(r.note).toBe("Vault listings are only connected for the Penrith branch.");
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("returns sample data for Penrith when credentials are missing", async () => {
+  it("is waiting with no data for Penrith when credentials are missing", async () => {
     vi.stubEnv("VAULT_API_BASE_URL", "https://vault.test/api");
     const r = await getListings("pen", []);
-    expect(r.status).toBe("sample");
-    expect(r.source).toBe("Sample generator");
+    expect(r.status).toBe("waiting");
+    expect(r.data).toEqual([]);
+    expect(r.note).toContain("VAULT_API_BASE_URL");
+    expect(r.source).toBe("MRI Vault API");
   });
 });
 
@@ -148,13 +151,14 @@ describe("getListings: live path", () => {
 });
 
 describe("getListings: failure fallback", () => {
-  it("is waiting with sample data and a note when Vault returns an error status", async () => {
+  it("is waiting with no data and a note when Vault returns an error status", async () => {
     cfg();
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) })));
     const r = await getListings("pen", []);
     expect(r.status).toBe("waiting");
     expect(r.note).toContain("Vault returned 503");
-    expect(r.data.every((l) => l.id.startsWith("sample-"))).toBe(true);
+    expect(r.data).toEqual([]);
+    expect(r.note).toMatch(/^Could not read Vault:/);
   });
 
   it("falls back when the request throws or the body is malformed", async () => {

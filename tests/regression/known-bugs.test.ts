@@ -87,7 +87,9 @@ describe("conversation quality bugs", () => {
     vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
     const spy = vi.fn(async () => { throw new Error("connect https://n8n.test/webhook/x?key=secret-pass"); });
     vi.stubGlobal("fetch", spy);
-    expect((await getConversations("pen")).status).toBe("sample");
+    const off = await getConversations("pen");
+    expect(off.status).toBe("waiting");
+    expect(off.data).toEqual([]);
     expect(spy).not.toHaveBeenCalled();
     vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
     const r = await getConversations("pen");
@@ -145,7 +147,8 @@ describe("tenancy and access bugs", () => {
     vi.stubGlobal("fetch", spy);
     const bm = await getConversations("bm");
     expect(spy).not.toHaveBeenCalled();
-    expect(bm.status).toBe("sample");
+    expect(bm.status).toBe("waiting");
+    expect(bm.data).toEqual([]);
     expect(JSON.stringify(bm.data)).not.toContain("PEN-LIVE");
     expect((await getConversations("pen")).data[0].conversationId).toBe("PEN-LIVE");
   });
@@ -295,12 +298,13 @@ describe("data honesty bugs", () => {
   it("REGRESSION buyer page badge comes from the data result, never hard-coded live", async () => {
     signedInAs(makeSession("agent"));
     const html = await renderPage(Buyer as never, { searchParams: Promise.resolve({}) });
-    expect(html).toContain("b-sample");
+    expect(html).toContain("b-waiting");
+    expect(html).not.toContain("b-sample");
     expect(html).not.toContain("b-live");
     expect(html).not.toContain("Real conversations from the conversation log");
   });
 
-  // Bug: a failed live read left the page claiming Live; it must fall back to Waiting with sample data and a note.
+  // Bug: a failed live read left the page claiming Live; it must fall back to Waiting with no data and a note.
   it("REGRESSION failed live read still labelled live", async () => {
     vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");

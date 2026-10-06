@@ -1,6 +1,5 @@
 import "server-only";
 import type { Conversation, Listing, Result } from "./types";
-import { sampleListings } from "./sample";
 
 type VaultProperty = {
   id: number;
@@ -44,7 +43,7 @@ function toListing(p: VaultProperty): Listing {
 
 export async function getListings(branchId: string, convos: Conversation[]): Promise<Result<Listing[]>> {
   if (branchId !== "pen" || !configured()) {
-    return { status: "sample", data: sampleListings(branchId), source: "Sample generator" };
+    return { status: "waiting", data: [], source: "MRI Vault API", note: branchId === "pen" ? "Add VAULT_API_BASE_URL, VAULT_API_KEY and VAULT_API_TOKEN to connect current listings." : "Vault listings are only connected for the Penrith branch." };
   }
   try {
     const res = await fetch(`${base()}/properties/sale?pagesize=100&sort=modified&sortOrder=desc`, {
@@ -63,6 +62,6 @@ export async function getListings(branchId: string, convos: Conversation[]): Pro
     }
     return { status: "live", data: live, source: "MRI Vault API (sale properties, current listings)", asOf: new Date().toISOString() };
   } catch (e) {
-    return { status: "waiting", data: sampleListings(branchId), source: "MRI Vault API", note: `Could not read Vault: ${e instanceof Error ? e.message : "error"}. Showing sample data.` };
+    return { status: "waiting", data: [], source: "MRI Vault API", note: `Could not read Vault: ${e instanceof Error ? e.message : "error"}.` };
   }
 }

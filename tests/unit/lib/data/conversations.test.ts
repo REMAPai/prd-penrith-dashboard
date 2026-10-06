@@ -38,7 +38,9 @@ describe("getConversations", () => {
       vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", v);
       const spy = vi.fn();
       vi.stubGlobal("fetch", spy);
-      expect((await getConversations("pen")).status).toBe("sample");
+      const r = await getConversations("pen");
+      expect(r.status).toBe("waiting");
+      expect(r.data).toEqual([]);
       expect(spy).not.toHaveBeenCalled();
     }
   });
@@ -58,13 +60,15 @@ describe("getConversations", () => {
     expect((await getConversations("pen")).note).toContain("Unexpected payload");
   });
 
-  it("is waiting with a sample fallback and a note when the log returns an error", async () => {
+  it("is waiting with no data and a note when the log returns an error", async () => {
     configure();
     reply({}, false, 500);
     const r = await getConversations("pen");
     expect(r.status).toBe("waiting");
     expect(r.note).toContain("n8n returned 500");
-    expect(r.data[0].conversationId).toMatch(/^sample-pen-/);
+    expect(r.data).toEqual([]);
+    expect(r.note).toContain("Could not read the live log");
+    expect(r.note).not.toContain("sample");
   });
 
   it("is waiting when the payload is wrong (bad passphrase) or the request throws", async () => {
@@ -75,21 +79,23 @@ describe("getConversations", () => {
     expect((await getConversations("pen")).note).toContain("n8n request failed");
   });
 
-  it("is sample with a how-to-connect note for Penrith when not configured", async () => {
+  it("is waiting with no data and a how-to-connect note for Penrith when not configured", async () => {
     const r = await getConversations("pen");
-    expect(r.status).toBe("sample");
+    expect(r.status).toBe("waiting");
+    expect(r.note).toContain("CONVERSATIONS_WEBHOOK_EMAIL");
+    expect(r.note).toContain("N8N_BASE_URL");
     expect(r.note).toContain("CONVERSATIONS_WEBHOOK_ENABLED");
-    expect(r.data[0].conversationId).toMatch(/^sample-pen-/);
+    expect(r.data).toEqual([]);
   });
 
-  it("is always sample for other branches, even when configured, and never calls the log", async () => {
+  it("is always waiting with no data for other branches, even when configured, and never calls the log", async () => {
     configure();
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
     const r = await getConversations("bm");
-    expect(r.status).toBe("sample");
-    expect(r.note).toBeUndefined();
-    expect(r.data.every((c) => c.conversationId.startsWith("sample-bm-"))).toBe(true);
+    expect(r.status).toBe("waiting");
+    expect(r.note).toBe("Live conversations are only connected for the Penrith branch.");
+    expect(r.data).toEqual([]);
     expect(spy).not.toHaveBeenCalled();
   });
 });

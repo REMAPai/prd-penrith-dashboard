@@ -1,6 +1,5 @@
 import "server-only";
 import type { Conversation, Result } from "./types";
-import { sampleConversations } from "./sample";
 import { query } from "@/lib/db";
 
 type Payload = { generatedAt: string; sendingLive: boolean; totalConversations: number; conversations: Conversation[] };
@@ -58,14 +57,14 @@ export async function getConversations(branchId: string): Promise<Result<Convers
       const j = await fetchLive();
       return { status: "live", data: j.conversations, source: "n8n conversation log (Google Sheet)", asOf: j.generatedAt, sendingLive: j.sendingLive };
     } catch (e) {
-      return { status: "waiting", data: sampleConversations(branchId), source: "n8n conversation log", note: `Could not read the live log: ${e instanceof Error ? e.message : "error"}. Showing sample data.` };
+      return { status: "waiting", data: [], source: "n8n conversation log", note: `Could not read the live log: ${e instanceof Error ? e.message : "error"}.` };
     }
   }
   return {
-    status: "sample",
-    data: sampleConversations(branchId),
-    source: "Sample generator",
-    note: branchId === "pen" ? "The live feed is the dashboard database written by n8n. The old n8n webhook is deprecated and only used when CONVERSATIONS_WEBHOOK_ENABLED=true." : undefined,
+    status: "waiting",
+    data: [],
+    source: "n8n conversation log",
+    note: branchId === "pen" ? "The live feed is the dashboard database written by n8n. The old n8n webhook is deprecated; to use it set CONVERSATIONS_WEBHOOK_ENABLED=true with N8N_BASE_URL, CONVERSATIONS_WEBHOOK_EMAIL and CONVERSATIONS_WEBHOOK_KEY." : "Live conversations are only connected for the Penrith branch.",
   };
 }
 

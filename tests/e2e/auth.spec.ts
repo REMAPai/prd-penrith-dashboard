@@ -48,7 +48,7 @@ test.describe("login page (read only)", () => {
 });
 
 test.describe("unauthenticated access (read only)", () => {
-  for (const path of ["/", "/progress", "/buyer", "/pipeline", "/users", "/audit", "/companies", "/map", "/buyer?tab=conversations&c=sample-pen-0&reveal=sample-pen-0"]) {
+  for (const path of ["/", "/progress", "/buyer", "/pipeline", "/users", "/audit", "/companies", "/map", "/buyer?tab=conversations&c=e2e-pen-0&reveal=e2e-pen-0"]) {
     test(`${path} redirects to /login`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(/\/login$/);
