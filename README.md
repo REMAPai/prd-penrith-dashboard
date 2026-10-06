@@ -33,6 +33,38 @@ npm run dev                    # http://localhost:3000
 
 Only whitelisted Vault fields are read. Commission, marketing spend, appraisal and authority dates are never passed on.
 
+## Scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run dev` / `build` / `start` | Develop, build, serve |
+| `npm run lint` | ESLint on `src` |
+| `npm run db:migrate` / `db:seed` | Apply migrations / seed (uses `.env.local`; the database is shared with staging for now) |
+| `npm run test:unit`, `test:regression`, `test:e2e`, `test:coverage`, `test:all` | Test suites (see `package.json` for the current set) |
+
+## Testing
+
+Unit and regression tests with Vitest in `tests/unit` and `tests/regression`; Playwright e2e in `tests/e2e` against a throwaway Postgres (`TEST_DATABASE_URL`, port 3100). Every fixed bug gets a regression test. Plan: `docs/testing/test-plan.md`.
+
+## CI/CD
+
+GitHub Actions workflow `pipeline`: CI on pull requests to `staging` and `production`; push to `staging` runs CI and e2e, then deploys through Dokploy. Production is not set up yet. Runbook: `docs/deployment/deployment-process.md`, rollback: `docs/deployment/rollback-process.md`.
+
+## Environments
+
+| Environment | URL | Branch |
+|---|---|---|
+| Local | http://localhost:3000 | any |
+| Staging | https://prd.remap.ai | `staging` |
+| Production | planned | `production` |
+
+Details: `docs/architecture/infrastructure.md`.
+
 ## Docs
 
-`docs/dashboard-spec.md`, `docs/requirements/srs.md`, `design/reference/` (original design prototype).
+- `CLAUDE.md`, `AGENTS.md`: rules for AI assistants and sub-agents
+- `docs/dashboard-spec.md`, `docs/requirements/` (srs, engagement-context, business-requirements, user-flows, acceptance-criteria)
+- `docs/architecture/` (system-architecture, infrastructure, integrations, api-design, database-design)
+- `docs/deployment/`, `docs/testing/test-plan.md`
+- `docs/ai/` (development guidelines, ADR log)
+- `design/reference/` (original design prototype)
