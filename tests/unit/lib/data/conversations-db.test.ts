@@ -52,11 +52,12 @@ describe("getConversations: dashboard database", () => {
     expect((await getConversations("pen")).data[0].turns).toEqual([]);
   });
 
-  it("does not claim live when the table is empty: falls through to sample", async () => {
+  it("does not claim live when the table is empty: falls through to waiting with no data", async () => {
     vi.stubEnv("DATABASE_URL", "postgres://test");
     routeDb([[/from buyer_conversations/, []]]);
     const r = await getConversations("pen");
-    expect(r.status).toBe("sample");
+    expect(r.status).toBe("waiting");
+    expect(r.data).toEqual([]);
   });
 
   it("falls back to the n8n log when the database errors, without leaking the error text", async () => {
@@ -75,14 +76,18 @@ describe("getConversations: dashboard database", () => {
   it("never reads the database for other branches", async () => {
     vi.stubEnv("DATABASE_URL", "postgres://test");
     const r = await getConversations("bm");
-    expect(r.status).toBe("sample");
+    expect(r.status).toBe("waiting");
+    expect(r.data).toEqual([]);
+    expect(r.note).toBe("Live conversations are only connected for the Penrith branch.");
     expect(query).not.toHaveBeenCalled();
   });
 
-  it("falls back to sample (waiting is not claimed) when neither source is available", async () => {
+  it("is waiting with no data (live is not claimed) when neither source is available", async () => {
     vi.stubEnv("DATABASE_URL", "postgres://test");
     query.mockRejectedValue(new Error("down"));
     vi.spyOn(console, "error").mockImplementation(() => {});
-    expect((await getConversations("pen")).status).toBe("sample");
+    const r = await getConversations("pen");
+    expect(r.status).toBe("waiting");
+    expect(r.data).toEqual([]);
   });
 });

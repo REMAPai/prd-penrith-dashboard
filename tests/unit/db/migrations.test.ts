@@ -106,14 +106,16 @@ describe("scripts/seed.mjs", () => {
     expect(seed).toMatch(/into branches[\s\S]*on conflict \(id\) do nothing/);
     expect(seed).toMatch(/into users[\s\S]*on conflict \(email\) do update/);
     expect(seed).toMatch(/is_sample = false`\)/);
-    expect(seed).toMatch(/is_sample = true`\)/);
+    expect(seed).not.toMatch(/is_sample = true/);
     expect(seed).toMatch(/from progress_items`\)/);
   });
 
-  it("seeds only known roles, real rows with unconfirmed zoning, and flags invented rows as sample", () => {
+  it("seeds only known roles, real rows with unconfirmed zoning, and inserts no sample rows", () => {
     for (const m of seed.matchAll(/"(platform_admin|company_admin|branch_admin|marketing|agent|viewer)"/g)) expect(Object.keys(ROLE_LABEL)).toContain(m[1]);
     expect(seed).toMatch(/'TBC', false, 0/);
-    expect(seed).toContain('"SAMPLE/"');
+    expect(seed).not.toContain('"SAMPLE/"');
+    expect(seed).not.toMatch(/true\s*,\s*(current_date|\$\d+|'|now)/i);
+    expect(seed).toMatch(/\$9, false, \$10\)/);
   });
 });
 
