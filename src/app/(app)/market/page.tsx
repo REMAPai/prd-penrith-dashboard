@@ -34,7 +34,7 @@ export default async function Market() {
   return (
     <>
       <PageHeader title="Market Insights" status={st === "live" ? "live" : "prototype"} sub="Where buyer demand is gaining or cooling, and where to focus." />
-      <Notice>The focus score is a transparent rule, not a prediction: recent enquiries x2, hot buyers x3, tracked sites x2, minus half a point per current listing already supplying the suburb. Sites count real DAs only. {convos.status !== "live" ? "Demand uses sample conversations until the live log is connected." : ""}</Notice>
+      <Notice>The focus score is a transparent rule, not a prediction: recent enquiries x2, hot buyers x3, tracked sites x2, minus half a point per current listing already supplying the suburb. Sites count real DAs only. {convos.status !== "live" ? "Demand needs the live conversation log to be connected." : ""}</Notice>
       <Card status={st} title="Suburbs ranked by focus score" sub="Enquiries compare the last 14 days with the 14 days before." source={`${convos.source}; ${listings.source}`}>
         <table className="t"><thead><tr><th>Suburb</th><th>Enquiries (14d)</th><th>Trend</th><th>Hot</th><th>Listings</th><th>Real DAs</th><th>Score</th></tr></thead>
           <tbody>

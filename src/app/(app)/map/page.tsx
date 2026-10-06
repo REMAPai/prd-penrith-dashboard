@@ -11,7 +11,7 @@ export default async function MapPage() {
   const ctx = await access("map");
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
-  const all = await query<Site>("select * from pipeline_sites where branch_id = $1 and lat is not null", [ctx.branch.id]);
+  const all = await query<Site>("select * from pipeline_sites where branch_id = $1 and lat is not null and is_sample = false", [ctx.branch.id]);
   const sites = (ctx.liveOnly ? all.filter((s) => !s.is_sample) : all).map((s) => ({ id: s.id, address: s.address, suburb: s.suburb, stage: s.stage, stageName: STAGES[s.stage], color: STAGE_COLORS[s.stage], lat: s.lat!, lng: s.lng!, sample: s.is_sample }));
   const convos = await getConversations(ctx.branch.id);
   const listings = await getListings(ctx.branch.id, convos.data);
@@ -24,7 +24,7 @@ export default async function MapPage() {
   return (
     <>
       <PageHeader title="Map" status="prototype" sub="Pipeline sites, buyer demand and current listings." />
-      <Notice>Site pins sit at suburb centres for now (approximate), not on the exact lot. Sample sites show a dashed outline. Demand uses {convos.status === "live" ? "real" : "sample"} conversations; listings use {listings.status === "live" ? "live Vault" : "sample"} data.</Notice>
+      <Notice>Site pins sit at suburb centres for now (approximate), not on the exact lot. Demand uses {convos.status === "live" ? "the live conversation log" : "no data until the conversation log is connected"}; listings use {listings.status === "live" ? "live Vault data" : "no data until Vault is connected"}.</Notice>
       <Card title="Sites, demand and listings" status="prototype">
         <MapLoader sites={sites} demand={demand} listings={pins} center={PENRITH_CENTER} />
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11 }} className="soft">

@@ -41,7 +41,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
 
   return (
     <>
-      <PageHeader title="Buyer Sequencing" status={st === "live" ? "live" : st} sub={live ? `Real conversations from the conversation log. Updated ${fmtDate(res.asOf)}.` : "Showing sample conversations until the live log is connected."} />
+      <PageHeader title="Buyer Sequencing" status={st === "live" ? "live" : st} sub={live ? `Real conversations from the conversation log. Updated ${fmtDate(res.asOf)}.` : "No conversations yet: the live log is not connected."} />
       {res.note && <Notice>{res.note}</Notice>}
       {live && !(res as { sendingLive?: boolean }).sendingLive && <Notice>Outbound sending is held. The assistant is working on real enquiries; replies are not being sent to buyers yet.</Notice>}
       <div className="grid-kpi">
