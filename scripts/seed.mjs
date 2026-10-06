@@ -56,28 +56,6 @@ if (!existing.rows[0].n) {
   }
 }
 
-// Sample rows so the pipeline and map are not empty. Flagged is_sample and shown with a Sample chip.
-const sampleN = (await q(`select count(*)::int as n from pipeline_sites where is_sample = true`)).rows[0].n;
-if (!sampleN) {
-  const cent = { Penrith: [-33.751, 150.694], "St Marys": [-33.765, 150.775], Kingswood: [-33.76, 150.72], Werrington: [-33.757, 150.745], "Cambridge Park": [-33.74, 150.71], "Emu Plains": [-33.746, 150.66], Jamisontown: [-33.77, 150.68], "Oxley Park": [-33.755, 150.79], Cranebrook: [-33.71, 150.72], Caddens: [-33.74, 150.76] };
-  const subs = Object.keys(cent);
-  const streets = ["Banksia", "Wattle", "Jacaranda", "Redgum", "Coral", "Eucalypt", "River", "Station", "Park", "Hill"];
-  const zones = ["R3 Medium Density", "R4 High Density", "R2 Low Density", "B4 Mixed Use"];
-  const sigs = ["Refusal under review", "Adjoining lots", "Expired listing", "DA lodged"];
-  const nexts = ["Confirm zoning", "Trace owner", "Send approach letter", "Book site meeting", "Review contract"];
-  let seedv = 12345;
-  const rnd = () => ((seedv = (seedv * 1664525 + 1013904223) >>> 0) / 4294967296);
-  const pk = (a) => a[Math.floor(rnd() * a.length)];
-  for (let i = 0; i < 30; i++) {
-    const sub = pk(subs), c = cent[sub], stage = Math.min(9, Math.floor(Math.pow(rnd(), 1.3) * 10)), zc = rnd() < 0.6;
-    await q(
-      `insert into pipeline_sites (branch_id, address, suburb, zoning, zoning_confirmed, lot_size, stage, priority, signal, da_number, source, assignee, next_step, lat, lng, is_sample, identified_on)
-       values ('pen', $1, $2, $3, $4, $5, $6, $7, $8, $9, 'Sample', $10, $11, $12, $13, true, current_date - $14::int)`,
-      [Math.floor(3 + rnd() * 170) + " " + pk(streets) + " St", sub, pk(zones), zc, Math.floor(450 + rnd() * 1950) + " m2", stage, pk(["H", "M", "L"]), pk(sigs), "SAMPLE/" + (100 + i), "Sample Agent", pk(nexts), c[0] + (rnd() - 0.5) * 0.012, c[1] + (rnd() - 0.5) * 0.012, Math.floor(rnd() * 60)],
-    );
-  }
-}
-
 // Progress items shown on Delivery Progress. Edit in the app (platform admin) or replace with a Jira feed later.
 const prog = (await q(`select count(*)::int as n from progress_items`)).rows[0].n;
 if (!prog) {

@@ -48,6 +48,10 @@ describe("time", () => {
 
 describe("page registry sanity", () => {
   it("never marks a sample page as live", () => {
-    for (const p of PAGES.filter((x) => ["meta", "finance"].includes(x.key))) expect(p.status).toBe("sample");
+    for (const p of PAGES.filter((x) => (x.status as string) === "sample")) expect(p.status).not.toBe("live");
+  });
+  it("shows real data only: no page has sample status", () => {
+    expect(PAGES.filter((x) => (x.status as string) === "sample")).toEqual([]);
+    for (const k of ["meta", "finance"]) expect(PAGES.find((x) => x.key === k)?.status).toBe("waiting");
   });
 });
