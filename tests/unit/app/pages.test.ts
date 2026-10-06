@@ -50,6 +50,7 @@ const PAGE_FNS: Record<string, Page> = {
 const sites = [
   { id: 1, branch_id: "pen", address: "84 Cox Avenue", suburb: "Penrith", zoning: "TBC", zoning_confirmed: false, lot_size: null, stage: 0, priority: "M", signal: "DA lodged", da_number: null, da_type: "DA", da_status: "Lodged", source: "PlanningAlerts", assignee: null, next_step: "Confirm zoning", notes: null, is_sample: false, identified_on: "2026-06-26", stage_changed_at: "2026-06-26T00:00:00Z", lat: -33.75, lng: 150.69 },
   { id: 2, branch_id: "pen", address: "9 Sample Street", suburb: "St Marys", zoning: "R3", zoning_confirmed: true, lot_size: "600 m2", stage: 4, priority: "H", signal: "Sample", da_number: "SAMPLE/1", da_type: null, da_status: null, source: "Sample", assignee: "Sample Agent", next_step: null, notes: null, is_sample: true, identified_on: "2026-09-01", stage_changed_at: "2026-09-02T00:00:00Z", lat: -33.76, lng: 150.77 },
+  { id: 3, branch_id: "pen", address: "92 Tench Avenue, Penrith NSW 2750", suburb: "Penrith", zoning: "TBC", zoning_confirmed: false, lot_size: "5,526 m2", stage: 0, priority: "M", signal: "Open-market land listing", da_number: null, da_type: null, da_status: null, source: "REA", assignee: null, next_step: null, notes: null, is_sample: false, identified_on: "2026-10-07", stage_changed_at: "2026-10-07T00:00:00Z", lat: null, lng: null, site_kind: "listing", price_guide: null, recency_label: "Captured 7 Oct 2026" },
 ];
 const userRows = [{ email: "v@prd.test", name: "Vee", role: "viewer", company_id: "prd", branch_id: "pen", status: "active", last_login: null }];
 
@@ -117,6 +118,17 @@ describe("pipeline page", () => {
     expect(html).toContain("Being built");
     expect(html).toContain('href="/progress"');
     expect(html).toContain("Sites in pipeline (incl. data under testing)");
+  });
+
+  it("lists open-market land on its own tab and keeps it off the table", async () => {
+    as("branch_admin");
+    const table = await renderPage(Pipeline, sp({ tab: "table" }));
+    expect(table).not.toContain("92 Tench Avenue");
+    const land = await renderPage(Pipeline, sp({ tab: "listings" }));
+    expect(land).toContain("92 Tench Avenue");
+    expect(land).toContain("5,526 m2");
+    expect(land).toContain("Not published");
+    expect(land).toContain("Source observations only");
   });
 
   it("hides sample rows entirely in Live only mode", async () => {

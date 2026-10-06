@@ -12,7 +12,7 @@ export default async function MapPage() {
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
   const all = await query<Site>("select * from pipeline_sites where branch_id = $1 and lat is not null", [ctx.branch.id]);
-  const sites = (ctx.liveOnly ? all.filter((s) => !s.is_sample) : all).map((s) => ({ id: s.id, address: s.address, suburb: s.suburb, stage: s.stage, stageName: STAGES[s.stage], color: STAGE_COLORS[s.stage], lat: s.lat!, lng: s.lng!, sample: s.is_sample }));
+  const sites = (ctx.liveOnly ? all.filter((s) => !s.is_sample) : all).filter((s) => s.lat != null && s.lng != null).map((s) => ({ id: s.id, address: s.address, suburb: s.suburb, stage: s.stage, stageName: STAGES[s.stage], color: STAGE_COLORS[s.stage], lat: s.lat!, lng: s.lng!, sample: s.is_sample }));
   const convos = await getConversations(ctx.branch.id);
   const listings = await getListings(ctx.branch.id, convos.data);
 
