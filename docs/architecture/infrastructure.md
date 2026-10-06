@@ -75,7 +75,7 @@ Workflow `.github/workflows/pipeline.yml`, name `pipeline`.
 | Concurrency | group `pipeline-<ref>`; in-progress runs cancelled only for pull requests, never for pushes (deploys finish) |
 | Job `ci` | checkout, Node 22 with npm cache, `npm ci`, `npm run lint`, `npx tsc --noEmit`, `npm run build`. The testing workstream adds coverage here |
 | Job `e2e` (being added) | `postgres:16` service container, Playwright against port 3100 using `TEST_DATABASE_URL` |
-| Job `deploy-staging` | Only on push to `staging`; `needs` `ci` (and `e2e` once added); environment `staging`; POST `$DOKPLOY_URL/api/application.deploy` with `applicationId`, `title` (short SHA), `description`; fails if HTTP code is 300 or above |
+| Job `deploy-staging` | Only on push to `staging`; `needs` `ci` (`e2e` is off the staging path; it runs on production PRs, pushes to `production` and on demand); environment `staging`; POST `$DOKPLOY_URL/api/application.deploy` with `applicationId`, `title` (short SHA), `description`; fails if HTTP code is 300 or above |
 | Health check | Polls `$STAGING_URL/login` every 15 s, up to 40 times (10 minutes), passes on HTTP 200 |
 | Job `deploy-production` | Only on push to `production` and only if variable `DOKPLOY_PRODUCTION_APP_ID` is set (it is not), so production does not deploy |
 | Artifacts | None uploaded. The Docker image is built on the Dokploy host, not in Actions or a registry |
