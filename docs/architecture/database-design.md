@@ -117,7 +117,7 @@ erDiagram
 | `branches` | Branches within a company with suburb lists (seed: `pen`, `bm`, `gp`) | cascade delete with company |
 | `users` | App users and roles | roles: platform_admin, company_admin, branch_admin, marketing, agent, viewer; `entra_oid` pins the Microsoft identity; `password_hash` only for fallback login |
 | `tenants` | Entra tenant ID to company/platform mapping and allowed email domains | seeded with REMAP.ai (platform) and PRD Group (company, only if company `prd` exists). Tenant IDs are public |
-| `pipeline_sites` | Development sites, stage 0 to 9, priority H/M/L, zoning with confirmation flag, DA fields, lat/lng, `is_sample` | six real DAs seeded with zoning TBC; sample rows flagged |
+| `pipeline_sites` | Development sites, stage 0 to 9, priority H/M/L, zoning with confirmation flag, DA fields, lat/lng, `is_sample` | six real DAs seeded with zoning TBC; 30 planning items and 25 REA land listings from the 7 Oct 2026 sourcing run loaded by `npm run db:seed-real` (`site_kind` da or listing); sample rows flagged |
 | `pipeline_events` | History of stage moves and zoning confirmations | cascade with site |
 | `tasks` | Activity and tasks | `due` is free text |
 | `feedback` | Feedback with rating, status, votes | status values enforced in app, not by constraint |

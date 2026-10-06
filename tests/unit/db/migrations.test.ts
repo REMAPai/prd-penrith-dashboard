@@ -139,6 +139,24 @@ describe("scripts/seed-demo-sites.mjs", () => {
   });
 });
 
+describe("scripts/seed-real-sites.mjs", () => {
+  const real = readFileSync(join(root, "scripts", "seed-real-sites.mjs"), "utf8");
+  const data = JSON.parse(readFileSync(join(root, "scripts", "data", "suffyan-sourcing-2026-10-07.json"), "utf8"));
+
+  it("is additive: never deletes, skips rows that exist, inserts real rows only", () => {
+    expect(real).not.toMatch(/deletes+from/i);
+    expect(real).toContain("where not exists");
+    expect(real).not.toMatch(/is_samples*=s*true/);
+    expect(real).toMatch(/'TBC', false, 0/);
+  });
+
+  it("carries the supplied observations and states they are not assessed", () => {
+    expect(data.listings).toHaveLength(25);
+    expect(data.planning).toHaveLength(30);
+    expect(data.caveat).toMatch(/not a development-suitability assessment/i);
+  });
+});
+
 describe("scripts/migrate.mjs", () => {
   async function run(applied: string[], failOn?: string) {
     vi.resetModules();

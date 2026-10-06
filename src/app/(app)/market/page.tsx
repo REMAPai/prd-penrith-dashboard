@@ -13,7 +13,7 @@ export default async function Market() {
   if (ctx === "denied") return <Denied />;
   const convos = await getConversations(ctx.branch.id);
   const listings = await getListings(ctx.branch.id, convos.data);
-  const sites = await query<{ suburb: string; is_sample: boolean }>("select suburb, is_sample from pipeline_sites where branch_id = $1", [ctx.branch.id]);
+  const sites = await query<{ suburb: string; is_sample: boolean }>("select suburb, is_sample from pipeline_sites where branch_id = $1 and site_kind <> 'listing'", [ctx.branch.id]);
 
   const suburbs = new Map<string, { recent: number; prior: number; hot: number; listings: number; sites: number }>();
   const get = (s: string) => suburbs.get(s) ?? suburbs.set(s, { recent: 0, prior: 0, hot: 0, listings: 0, sites: 0 }).get(s)!;
@@ -34,7 +34,7 @@ export default async function Market() {
   return (
     <>
       <PageHeader title="Market Insights" status={st === "live" ? "live" : "prototype"} sub="Where buyer demand is gaining or cooling, and where to focus." />
-      <Notice>The focus score is a transparent rule, not a prediction: recent enquiries x2, hot buyers x3, tracked sites x2, minus half a point per current listing already supplying the suburb. Sites count real DAs only. {convos.status !== "live" ? "Demand needs the live conversation log to be connected." : ""}</Notice>
+      <Notice>The focus score is a transparent rule, not a prediction: recent enquiries x2, hot buyers x3, tracked sites x2, minus half a point per current listing already supplying the suburb. Sites count real council planning items only. {convos.status !== "live" ? "Demand needs the live conversation log to be connected." : ""}</Notice>
       <Card status={st} title="Suburbs ranked by focus score" sub="Enquiries compare the last 14 days with the 14 days before." source={`${convos.source}; ${listings.source}`}>
         <table className="t"><thead><tr><th>Suburb</th><th>Enquiries (14d)</th><th>Trend</th><th>Hot</th><th>Listings</th><th>Real DAs</th><th>Score</th></tr></thead>
           <tbody>

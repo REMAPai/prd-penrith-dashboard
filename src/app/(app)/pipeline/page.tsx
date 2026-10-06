@@ -60,16 +60,17 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
   if (ctx === "denied") return <Denied />;
   const sp = await searchParams;
   const tab = sp.tab || "board";
-  const all = await query<Site>("select * from pipeline_sites where branch_id = $1 order by priority, id", [ctx.branch.id]);
+  const rows = await query<Site>("select * from pipeline_sites where branch_id = $1 order by priority, id", [ctx.branch.id]);
+  const all = rows.filter((s) => s.site_kind !== "listing");
+  const listings = rows.filter((s) => s.site_kind === "listing");
   const sites = ctx.liveOnly ? all.filter((s) => !s.is_sample) : all;
-  const open = sp.site ? all.find((s) => String(s.id) === sp.site) : undefined;
+  const open = sp.site ? rows.find((s) => String(s.id) === sp.site) : undefined;
   const events = open ? await query<{ at: string; actor_email: string; kind: string; detail: string }>("select at, actor_email, kind, detail from pipeline_events where site_id = $1 order by at desc limit 20", [open.id]) : [];
   const edit = canEditPipeline(ctx.session.role);
   const real = all.filter((s) => !s.is_sample);
   const testing = all.filter((s) => s.is_sample);
   const weekly = (rows: Site[]) => [
-    ["New DAs identified this week", rows.filter((s) => s.da_type === "DA" && days(s.identified_on) < 7).length],
-    ["New CDCs identified this week", rows.filter((s) => s.da_type === "CDC" && days(s.identified_on) < 7).length],
+    ["New planning items identified this week", rows.filter((s) => days(s.identified_on) < 7).length],
     ["Approved", rows.filter((s) => s.da_status === "Approved").length],
     ["Refused (under review)", rows.filter((s) => s.da_status === "Refused").length],
     ["Owner or director contact still needed", rows.filter((s) => s.stage < 2).length],
@@ -84,7 +85,7 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
       <div className="notice" style={{ display: "grid", gap: 10 }}>
         <div style={{ fontWeight: 600 }}>Under active development: this page is being built week by week.</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, fontSize: 13, lineHeight: 1.5 }}>
-          <div><FieldTag state="working" /><div>The 6 real council applications are tracked. You can move sites through the stages and confirm zoning yourself.</div></div>
+          <div><FieldTag state="working" /><div>{real.length} real council planning items and {listings.length} open-market land listings from the 7 October sourcing run are loaded. You can move sites through the stages and confirm zoning yourself.</div></div>
           <div><FieldTag state="building" /><div>The weekly automatic feed from the NSW Planning Portal and the owner trace. Target: first Monday report in about two weeks.</div></div>
           <div><FieldTag state="needs" /><div>The must-have field list, the hold-period rule, who runs the weekly playbook, and RP Data and Cordell access and cost.</div></div>
         </div>
@@ -92,12 +93,13 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
       </div>
       {!ctx.liveOnly && testing.length > 0 && <Notice>Rows marked Data under testing are invented examples that show the fields and stages we are building towards. They are not council or PRD data. Switch to Live only to hide them.</Notice>}
       <div className="grid-kpi">
-        <Kpi label="Real DAs tracked" value={real.length} />
+        <Kpi label="Real planning items" value={real.length} />
+        <Kpi label="Open-market land listings" value={listings.length} />
         <Kpi label="Zoning still to confirm" value={real.filter((s) => !s.zoning_confirmed).length} />
         <Kpi label="Refused, under review" value={real.filter((s) => s.da_status === "Refused").length} />
         <Kpi label={sites.some((s) => s.is_sample) ? "Sites in pipeline (incl. data under testing)" : "Sites in pipeline"} value={sites.length} />
       </div>
-      <Tabs base="/pipeline" current={tab} tabs={[["board", "Board"], ["table", "Table"], ["snapshot", "Weekly snapshot"]]} />
+      <Tabs base="/pipeline" current={tab} tabs={[["board", "Board"], ["table", "Table"], ["listings", "Open-market land"], ["snapshot", "Weekly snapshot"]]} />
 
       {tab === "board" && (
         <Card title="Pipeline board" sub="Open a card to move it or confirm zoning.">
@@ -142,12 +144,34 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
                     <td><Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "TBC"}</Badge></td>
                     <td className="soft">{s.lot_size ?? "To confirm"}</td>
                     <td className="soft">{s.fsr || s.height_m ? `${s.fsr ?? "?"} / ${s.height_m ?? "?"}` : "To confirm"}</td>
-                    <td className="soft">{[s.da_type, s.da_status].filter(Boolean).join(" · ")}</td>
+                    <td className="soft">{[s.da_type, s.da_status].filter(Boolean).join(" · ") || s.da_number || "Not stated"}</td>
                     <td className="soft">{s.applicant ?? "Not yet found"}</td>
                     <td className="soft">{s.contact_found ?? "Not yet found"}</td>
                     <td className="soft">{s.ownership_signal ?? s.signal}</td>
                     <td className="soft">{s.hold_years ?? ""}</td>
                     <td>{s.priority}</td><td className="soft">{s.next_step}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {tab === "listings" && (
+        <Card title="Open-market land" sub="Public land-for-sale listings on realestate.com.au, captured 7 October 2026 from the Penrith area. Source observations only: zoning, planning controls, flood and heritage constraints and yield still need checking." source="Suffyan's sourcing run (REA)">
+          <div style={{ overflow: "auto" }}>
+            <table className="t" style={{ minWidth: 760 }}>
+              <thead><tr><th>Address</th><th>Suburb</th><th>Land size</th><th>Price guide</th><th>Zoning</th><th>Source</th></tr></thead>
+              <tbody>
+                {listings.map((s) => (
+                  <tr key={s.id}>
+                    <td style={{ fontWeight: 500 }}><Link href={`/pipeline?tab=listings&site=${s.id}`}>{s.address}</Link></td>
+                    <td>{s.suburb}</td>
+                    <td className="soft">{s.lot_size ?? "Not stated"}</td>
+                    <td className="soft">{s.price_guide ?? "Not published"}</td>
+                    <td><Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "TBC"}</Badge></td>
+                    <td className="soft">{s.source}</td>
                   </tr>
                 ))}
               </tbody>
@@ -173,7 +197,7 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
         <Drawer title={open.address} sub={`${open.suburb} · ${open.lot_size ?? "lot size to confirm"}`} closeHref={`/pipeline?tab=${tab}`}
           badges={<><Badge tone="red">{STAGES[open.stage]}</Badge><Badge tone={open.zoning_confirmed ? "done" : "prototype"}>{open.zoning_confirmed ? open.zoning : "Zoning TBC: confirm before acting"}</Badge>{open.is_sample && <TestBadge />}</>}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "10px 16px" }}>
-            {[["Signal", open.signal], ["DA", [open.da_type, open.da_status, open.da_number].filter(Boolean).join(" · ")], ["Council area", open.lga], ["Zoning source", open.zoning_source], ["FSR", open.fsr], ["Height limit", open.height_m], ["Applicant / company", open.applicant], ["ABN", open.abn], ["Contact found", open.contact_found], ["Ownership signal", open.ownership_signal], ["Hold period (years)", open.hold_years?.toString()], ["Source", open.source], ["Priority", open.priority], ["Assignee", open.assignee], ["Next step", open.next_step], ["Identified", open.identified_on?.toString().slice(0, 10)]].map(([k, v]) => (
+            {[["Signal", open.signal], ["DA", [open.da_type, open.da_status, open.da_number].filter(Boolean).join(" · ")], ["Council area", open.lga], ["Price guide", open.price_guide], ["Seen", open.recency_label], ["Zoning source", open.zoning_source], ["FSR", open.fsr], ["Height limit", open.height_m], ["Applicant / company", open.applicant], ["ABN", open.abn], ["Contact found", open.contact_found], ["Ownership signal", open.ownership_signal], ["Hold period (years)", open.hold_years?.toString()], ["Source", open.source], ["Priority", open.priority], ["Assignee", open.assignee], ["Next step", open.next_step], ["Identified", open.identified_on?.toString().slice(0, 10)]].map(([k, v]) => (
               <div key={k as string}><div className="soft" style={{ fontSize: 11 }}>{k}</div><div style={{ fontWeight: 500 }}>{(v as string) || "Not set"}</div></div>
             ))}
           </div>
