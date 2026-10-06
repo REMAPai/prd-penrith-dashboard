@@ -8,3 +8,5 @@ design/*.zip
 .env.local
 env*
 !.env.example
+public/maplibre/
+*.tsbuildinfo
