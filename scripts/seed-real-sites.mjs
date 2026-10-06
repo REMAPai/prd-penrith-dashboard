@@ -67,7 +67,7 @@ try {
   for (const p of planning) {
     const r = await client.query(
       `insert into pipeline_sites (branch_id, address, suburb, lga, zoning, zoning_confirmed, stage, priority, signal, da_number, source, next_step, notes, recency_label, site_kind, lat, lng, is_sample, identified_on, stage_changed_at)
-       select 'pen', $1, $2, 'Penrith', 'TBC', false, 0, $3, $4, $5, 'Planning Alerts (Penrith City Council)', 'Confirm zoning on NSW Planning Portal Spatial Viewer', $6, $7, 'da', $8, $9, false, $10, $10
+       select 'pen', $1, $2, 'Penrith', 'TBC', false, 0, $3, $4, $5, 'Planning Alerts (Penrith City Council)', 'Confirm zoning on NSW Planning Portal Spatial Viewer', $6, $7, 'da', $8, $9, false, $10::date, $10::date::timestamptz
        where not exists (select 1 from pipeline_sites where branch_id = 'pen' and site_kind = 'da' and address = $1 and coalesce(notes, '') = $6)`,
       [p.address, p.suburb, p.priority, p.signal, p.daNumber, p.notes, p.recency, p.lat, p.lng, p.identified],
     );
