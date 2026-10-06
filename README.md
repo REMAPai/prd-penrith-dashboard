@@ -27,7 +27,7 @@ npm run dev                    # http://localhost:3000
 | Source | Needs | Status when missing |
 |---|---|---|
 | Postgres | `DATABASE_URL` | app does not start |
-| Conversation log (n8n webhook `prd-buyer-conversations`) | `N8N_BASE_URL`, `CONVERSATIONS_WEBHOOK_EMAIL`, `CONVERSATIONS_WEBHOOK_KEY` | Sample |
+| Buyer conversations (dashboard database, written by the n8n workflow through `/api/ingest`) | `INGEST_API_KEY` (shared with the n8n credential "PRD ingest key") | Waiting on access (no rows) |
 | MRI Vault (current listings) | `VAULT_API_BASE_URL`, `VAULT_API_KEY`, `VAULT_API_TOKEN` | Sample |
 | ClickSend, n8n API | keys in `.env.example` | shown on Data Sources |
 

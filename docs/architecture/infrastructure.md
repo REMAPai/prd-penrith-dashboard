@@ -63,7 +63,7 @@ Rotation procedure (per secret)
 Known exposure to rotate
 - Vault, website admin, Outlook and ClickSend credentials were shared in plain email in August to September 2026 (see `docs/requirements/engagement-context.md`, issue 17). Rotate and move to the secure credentials service. Owner: Hamza/Irfan with Lily. Status: TBC.
 - Any credential ever pasted in chat or committed must be treated as compromised.
-- The n8n conversation webhook sends its passphrase as URL query parameters (`email`, `key`), which can appear in n8n or proxy access logs. It is now deprecated and opt-in (`CONVERSATIONS_WEBHOOK_ENABLED=true`, default off); the database feed supersedes it, and the URL is never put in an error message or log.
+- The n8n conversation webhook that sent its passphrase as URL query parameters has been removed from the dashboard; conversations are read from the dashboard database only.
 
 ## 4. CI/CD pipeline
 
