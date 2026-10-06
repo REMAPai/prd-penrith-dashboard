@@ -63,7 +63,7 @@ Rotation procedure (per secret)
 Known exposure to rotate
 - Vault, website admin, Outlook and ClickSend credentials were shared in plain email in August to September 2026 (see `docs/requirements/engagement-context.md`, issue 17). Rotate and move to the secure credentials service. Owner: Hamza/Irfan with Lily. Status: TBC.
 - Any credential ever pasted in chat or committed must be treated as compromised.
-- The conversation webhook passphrase travels as URL query parameters (`email`, `key`) to n8n; it can appear in n8n or proxy access logs. Prefer a header (backlog).
+- The n8n conversation webhook sends its passphrase as URL query parameters (`email`, `key`), which can appear in n8n or proxy access logs. It is now deprecated and opt-in (`CONVERSATIONS_WEBHOOK_ENABLED=true`, default off); the database feed supersedes it, and the URL is never put in an error message or log.
 
 ## 4. CI/CD pipeline
 
@@ -152,8 +152,9 @@ Missing
 | P1 | Uptime monitoring and deploy-failure alerts (Teams, destination TBC with Darren) |
 | P1 | Create production Dokploy application, domain, set `DOKPLOY_PRODUCTION_APP_ID`, add approval gate on the `production` environment |
 | P1 | Turn on branch protection when plan or visibility allows (private repo or paid plan) |
-| P2 | Move conversation webhook passphrase from query string to a header |
-| P2 | Add CSP and security headers; shared rate limiting |
+| Done | Conversation webhook passphrase in query string: webhook is now opt-in and deprecated (`CONVERSATIONS_WEBHOOK_ENABLED`) |
+| Done | CSP and security headers set in `next.config.ts` (HSTS in production only) |
+| P2 | Shared rate limiting |
 | P2 | Dependency and image scanning in CI (npm audit, Dependabot) |
 | P2 | Version marker endpoint so the health check proves the new build is serving |
 | P2 | Export n8n workflows to Git (SRS DOC-03) |

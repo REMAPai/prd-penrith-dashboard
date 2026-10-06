@@ -61,6 +61,7 @@ describe("getConversations: dashboard database", () => {
 
   it("falls back to the n8n log when the database errors, without leaking the error text", async () => {
     vi.stubEnv("DATABASE_URL", "postgres://test");
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "e@x.test");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
     vi.stubEnv("N8N_BASE_URL", "https://n8n.test");

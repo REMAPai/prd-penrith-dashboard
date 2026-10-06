@@ -194,6 +194,7 @@ describe("buyer page: masking and reveal", () => {
 
 describe("buyer page: live log", () => {
   it("shows Live with the outbound-held notice and no sample ribbon", async () => {
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
     vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
