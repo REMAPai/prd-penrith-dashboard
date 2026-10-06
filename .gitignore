@@ -10,3 +10,12 @@ env*
 !.env.example
 public/maplibre/
 *.tsbuildinfo
+
+# tests
+coverage/
+playwright-report/
+test-results/
+tests/e2e/.auth/
+
+# Backups of live n8n workflows; exports contain credentials and shared passphrases
+n8n/original/
