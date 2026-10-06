@@ -41,6 +41,17 @@ export default async function globalSetup() {
        values ('pen', $1, 'Penrith', 'TBC', false, 0, 'M', 'E2E', 'e2e', 'Confirm zoning', -33.751, 150.694, false)`,
       [address],
     );
+    // One invented conversation in the dashboard database (the live source), so the buyer pages have something to show.
+    await client.query(
+      `insert into buyer_conversations (conversation_id, branch_id, buyer, phone, email, property, source, agent, temperature, inspection, after_hours, started_at, last_at)
+       values ('e2e-pen-0', 'pen', 'E2E Buyer', '0400 000 000', 'e2e-buyer@example.test', '1 Test Street, PENRITH', 'REA', 'E2E Agent', 'Warm', 'offered_not_answered', false, now(), now())
+       on conflict (conversation_id) do nothing`,
+    );
+    await client.query(
+      `insert into buyer_turns (conversation_id, turn, buyer_message, assistant_reply, buyer_at, reply_at)
+       values ('e2e-pen-0', 1, 'Is this still available?', 'Yes, it is. Open home this Saturday.', now(), now())
+       on conflict (conversation_id, turn) do nothing`,
+    );
     mkdirSync(AUTH_DIR, { recursive: true });
     writeFileSync(RUN_FILE, JSON.stringify({ address, stamp: Date.now() }));
   } finally {
