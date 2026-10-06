@@ -80,19 +80,20 @@ describe("conversation quality bugs", () => {
     expect(kinds([convo({}, [turn("a", "Yes it is available."), turn("b", "Open home is Saturday.")])])).not.toContain("Repeated reply opening");
   });
 
-  // Bug: the passphrase-in-URL n8n webhook was always called when configured; it is now opt-in and its URL never leaks into errors.
-  it("REGRESSION conversation webhook only called when explicitly enabled, URL never in the note", async () => {
+  // Bug: the passphrase-in-URL n8n webhook was always called when configured; the path is removed, so n8n is never called and nothing leaks.
+  it("REGRESSION conversations never call the n8n webhook or leak its URL or passphrase", async () => {
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "secret-pass");
     vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
     const spy = vi.fn(async () => { throw new Error("connect https://n8n.test/webhook/x?key=secret-pass"); });
     vi.stubGlobal("fetch", spy);
-    const off = await getConversations("pen");
-    expect(off.status).toBe("waiting");
-    expect(off.data).toEqual([]);
-    expect(spy).not.toHaveBeenCalled();
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    query.mockRejectedValue(new Error("db down secret-pass"));
     const r = await getConversations("pen");
+    expect(r.status).toBe("waiting");
+    expect(r.data).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
     expect(JSON.stringify(r)).not.toMatch(/secret-pass|n8n\.test|key=/);
   });
 
@@ -139,14 +140,14 @@ describe("listing data bugs", () => {
 describe("tenancy and access bugs", () => {
   // Bug: a buyer conversation from the live Penrith log was shown while viewing another branch.
   it("REGRESSION conversation shown for a different branch", async () => {
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
-    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
-    const spy = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ generatedAt: "x", sendingLive: true, totalConversations: 1, conversations: [convo({ conversationId: "PEN-LIVE" })] }) }));
+    const row = { conversation_id: "PEN-LIVE", enquiry_id: "e", buyer: "B", phone: "", email: "", property: "", source: "", agent: "", temperature: "Hot", buyer_type: "", finance_status: "", needs_to_sell_first: "", timeframe: "", inspection: "", wants_contract: false, consent: "", ready_for_agent: false, why_ready: "", handoff_status: "none", sla_due_at: null, after_hours: false, started_at: new Date(), last_at: new Date() };
+    routeDb([[/from buyer_conversations/, [row]], [/from buyer_turns/, []]]);
+    const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
+    query.mockClear();
     const bm = await getConversations("bm");
     expect(spy).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
     expect(bm.status).toBe("waiting");
     expect(bm.data).toEqual([]);
     expect(JSON.stringify(bm.data)).not.toContain("PEN-LIVE");
@@ -306,11 +307,8 @@ describe("data honesty bugs", () => {
 
   // Bug: a failed live read left the page claiming Live; it must fall back to Waiting with no data and a note.
   it("REGRESSION failed live read still labelled live", async () => {
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
-    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) })));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    query.mockRejectedValue(new Error("db down"));
     const r = await getConversations("pen");
     expect(r.status).toBe("waiting");
     expect(r.note).toBeTruthy();

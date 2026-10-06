@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { query, routeDb } from "@tests/helpers/db";
-import { convo } from "@tests/helpers/conversation";
 
 vi.mock("@/lib/db", async () => (await import("@tests/helpers/db")).dbMock);
 
@@ -18,8 +17,7 @@ const turns = [
 ];
 
 describe("getConversations: dashboard database", () => {
-  it("is live and mapped from the buyer_conversations and buyer_turns tables when DATABASE_URL is set", async () => {
-    vi.stubEnv("DATABASE_URL", "postgres://test");
+  it("is live and mapped from the buyer_conversations and buyer_turns tables", async () => {
     vi.stubEnv("OUTBOUND_SENDING_LIVE", "true");
     routeDb([[/from buyer_conversations/, [row()]], [/from buyer_turns/, turns]]);
     const r = await getConversations("pen");
@@ -35,7 +33,6 @@ describe("getConversations: dashboard database", () => {
   });
 
   it("only reads the Penrith branch and passes the conversation ids as a parameter", async () => {
-    vi.stubEnv("DATABASE_URL", "postgres://test");
     routeDb([[/from buyer_conversations/, [row()]], [/from buyer_turns/, turns]]);
     await getConversations("pen");
     expect(String(query.mock.calls[0][0])).toContain("branch_id = 'pen'");
@@ -43,7 +40,6 @@ describe("getConversations: dashboard database", () => {
   });
 
   it("outbound sending is reported as held unless OUTBOUND_SENDING_LIVE is exactly 'true'", async () => {
-    vi.stubEnv("DATABASE_URL", "postgres://test");
     routeDb([[/from buyer_conversations/, [row({ sla_due_at: null })]], [/from buyer_turns/, []]]);
     expect((await getConversations("pen")).sendingLive).toBe(false);
     vi.stubEnv("OUTBOUND_SENDING_LIVE", "yes");
@@ -52,30 +48,27 @@ describe("getConversations: dashboard database", () => {
     expect((await getConversations("pen")).data[0].turns).toEqual([]);
   });
 
-  it("does not claim live when the table is empty: falls through to waiting with no data", async () => {
-    vi.stubEnv("DATABASE_URL", "postgres://test");
+  it("does not claim live when the table is empty: waiting with no data and a stored-yet note", async () => {
     routeDb([[/from buyer_conversations/, []]]);
     const r = await getConversations("pen");
     expect(r.status).toBe("waiting");
     expect(r.data).toEqual([]);
+    expect(r.note).toMatch(/^No conversations are stored yet/);
   });
 
-  it("falls back to the n8n log when the database errors, without leaking the error text", async () => {
-    vi.stubEnv("DATABASE_URL", "postgres://test");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "e@x.test");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
-    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
+  it("is waiting with a safe note when the database errors, never leaking the error text or claiming live", async () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    query.mockRejectedValue(new Error("connection refused"));
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ generatedAt: "g", sendingLive: false, totalConversations: 1, conversations: [convo({ conversationId: "n8n-1" })] }) })));
+    query.mockRejectedValue(new Error("connection refused postgres://u:secret@db"));
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
     const r = await getConversations("pen");
-    expect(r.data[0].conversationId).toBe("n8n-1");
+    expect(r).toMatchObject({ status: "waiting", data: [], note: "Could not read the dashboard database." });
+    expect(JSON.stringify(r)).not.toMatch(/refused|secret|postgres:/);
     expect(err).toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("never reads the database for other branches", async () => {
-    vi.stubEnv("DATABASE_URL", "postgres://test");
     const r = await getConversations("bm");
     expect(r.status).toBe("waiting");
     expect(r.data).toEqual([]);
@@ -83,12 +76,17 @@ describe("getConversations: dashboard database", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
-  it("is waiting with no data (live is not claimed) when neither source is available", async () => {
-    vi.stubEnv("DATABASE_URL", "postgres://test");
-    query.mockRejectedValue(new Error("down"));
-    vi.spyOn(console, "error").mockImplementation(() => {});
+  it("never calls n8n: legacy webhook variables have no effect", async () => {
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "e@x.test");
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
+    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    routeDb([[/from buyer_conversations/, []]]);
     const r = await getConversations("pen");
     expect(r.status).toBe("waiting");
     expect(r.data).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
   });
 });

@@ -2,24 +2,6 @@ import "server-only";
 import type { Conversation, Result } from "./types";
 import { query } from "@/lib/db";
 
-type Payload = { generatedAt: string; sendingLive: boolean; totalConversations: number; conversations: Conversation[] };
-
-const url = () => (process.env.CONVERSATIONS_WEBHOOK_URL || `${(process.env.N8N_BASE_URL || "").replace(/\/$/, "")}/webhook/prd-buyer-conversations`);
-const configured = () => process.env.CONVERSATIONS_WEBHOOK_ENABLED === "true" && !!process.env.CONVERSATIONS_WEBHOOK_EMAIL && !!process.env.CONVERSATIONS_WEBHOOK_KEY && !!process.env.N8N_BASE_URL;
-
-async function fetchLive(): Promise<Payload> {
-  const u = new URL(url());
-  u.searchParams.set("email", process.env.CONVERSATIONS_WEBHOOK_EMAIL!);
-  u.searchParams.set("key", process.env.CONVERSATIONS_WEBHOOK_KEY!);
-  const res = await fetch(u, { next: { revalidate: 60 }, signal: AbortSignal.timeout(20000) }).catch(() => {
-    throw new Error("n8n request failed");
-  });
-  if (!res.ok) throw new Error(`n8n returned ${res.status}`);
-  const j = (await res.json().catch(() => null)) as Payload | null;
-  if (!j || !Array.isArray(j.conversations)) throw new Error("Unexpected payload from n8n");
-  return j;
-}
-
 type ConvRow = { conversation_id: string; enquiry_id: string; buyer: string; phone: string; email: string; property: string; source: string; agent: string; temperature: "Hot" | "Warm" | "New"; buyer_type: string; finance_status: string; needs_to_sell_first: string; timeframe: string; inspection: string; wants_contract: boolean; consent: string; ready_for_agent: boolean; why_ready: string; handoff_status: "none" | "pending" | "done"; sla_due_at: Date | null; after_hours: boolean; started_at: Date; last_at: Date };
 type TurnRow = { conversation_id: string; turn: number; buyer_message: string; assistant_reply: string; buyer_at: Date; reply_at: Date | null };
 
@@ -44,28 +26,15 @@ async function fromDatabase(): Promise<{ data: Conversation[]; asOf: string } | 
 
 export async function getConversations(branchId: string): Promise<Result<Conversation[]> & { sendingLive?: boolean }> {
   const sendingLive = process.env.OUTBOUND_SENDING_LIVE === "true";
-  if (branchId === "pen" && process.env.DATABASE_URL) {
-    try {
-      const db = await fromDatabase();
-      if (db) return { status: "live", data: db.data, source: "Dashboard database, written by n8n on every turn", asOf: db.asOf, sendingLive };
-    } catch (e) {
-      console.error("conversation store unavailable", e instanceof Error ? e.message : "error");
-    }
+  if (branchId !== "pen") return { status: "waiting", data: [], source: "Dashboard database", note: "Live conversations are only connected for the Penrith branch." };
+  try {
+    const db = await fromDatabase();
+    if (db) return { status: "live", data: db.data, source: "Dashboard database, written by n8n on every turn", asOf: db.asOf, sendingLive };
+    return { status: "waiting", data: [], source: "Dashboard database", note: "No conversations are stored yet. n8n adds each one to the dashboard database as enquiries arrive." };
+  } catch (e) {
+    console.error("conversation store unavailable", e instanceof Error ? e.message : "error");
+    return { status: "waiting", data: [], source: "Dashboard database", note: "Could not read the dashboard database." };
   }
-  if (branchId === "pen" && configured()) {
-    try {
-      const j = await fetchLive();
-      return { status: "live", data: j.conversations, source: "n8n conversation log (Google Sheet)", asOf: j.generatedAt, sendingLive: j.sendingLive };
-    } catch (e) {
-      return { status: "waiting", data: [], source: "n8n conversation log", note: `Could not read the live log: ${e instanceof Error ? e.message : "error"}.` };
-    }
-  }
-  return {
-    status: "waiting",
-    data: [],
-    source: "n8n conversation log",
-    note: branchId === "pen" ? "The live feed is the dashboard database written by n8n. The old n8n webhook is deprecated; to use it set CONVERSATIONS_WEBHOOK_ENABLED=true with N8N_BASE_URL, CONVERSATIONS_WEBHOOK_EMAIL and CONVERSATIONS_WEBHOOK_KEY." : "Live conversations are only connected for the Penrith branch.",
-  };
 }
 
 export type QualityFlag = { id: string; kind: string; example: string };
