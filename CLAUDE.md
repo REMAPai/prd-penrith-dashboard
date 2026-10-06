@@ -76,7 +76,7 @@ Derived from the SDLC. For any non-trivial feature or fix, produce a short writt
 | 3 | Design | Data model change, routes/actions, auth and role rules, which provider and status, n8n vs app decision, ADR if a real decision | Design reviewed; migrations, authorization and failure modes described |
 | 4 | Implementation | Code on `feature/*` or `fix/*`, migration (idempotent), tests written with it | Lint, tsc, build pass locally; no secrets; docs updated alongside |
 | 5 | Review | PR with diff summary, test evidence, screenshots for UI | A second person reviews AI-assisted PRs; checklist below satisfied; no unresolved comments |
-| 6 | Testing | Unit, regression (bug fixes), e2e for pages/flows, accessibility pass | CI green (`ci` and `e2e`); coverage thresholds met; manual checks for risky areas |
+| 6 | Testing | Unit, regression (bug fixes), e2e for pages/flows, accessibility pass | CI green (`ci`; `e2e` runs on production PRs and on demand); coverage thresholds met; manual checks for risky areas |
 | 7 | Staging / UAT | Merge PR to `staging`; verify on https://prd.remap.ai; UAT checklist for Darren/Thomas where visible | Verification checklist passed; feedback captured in the Feedback page and Jira |
 | 8 | Release | PR `staging` to `production` (when production exists), release notes, rollback noted | Approved by Hamza; deploy succeeds; smoke tests pass |
 | 9 | Monitoring | Data Sources page, audit log, n8n execution failures, logs | No new errors for the agreed window; owners know where to look |
@@ -108,7 +108,7 @@ Deriving steps for a new item: restate the request, find the matching requiremen
 - Every module and process gets unit tests; every page and user flow gets UI (e2e) tests.
 - Every fixed bug gets a regression test written first (fails before, passes after), one case per known bug, in `tests/regression`.
 - Coverage thresholds are enforced in CI (`test:coverage`); the exact numbers live in the vitest config and `docs/testing/test-plan.md`. Do not lower them to pass.
-- Tests must pass in CI (`ci` and `e2e`) before any deploy; `deploy-staging` needs both.
+- `ci` (lint, types, unit and regression tests, build) must pass before any deploy; `deploy-staging` needs `ci`. The slow Playwright `e2e` job is off the staging path by choice: it runs on PRs and pushes to `production` and on demand (Actions tab, Run workflow). Run it after UI-affecting changes and before every production release.
 - Never mock away the thing under test. Mock only external boundaries (Vault, n8n, ClickSend, Entra token endpoint); use a real Postgres for data and auth logic.
 - E2E runs only against the throwaway database (`TEST_DATABASE_URL`), never the shared one.
 
