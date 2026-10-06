@@ -50,7 +50,7 @@ export default function MapView({ sites, demand, listings, center }: { sites: Ma
     for (const s of sites) {
       const a = document.createElement("a");
       a.href = `/pipeline?tab=board&site=${s.id}`;
-      a.title = `${s.address} (${s.stageName})${s.sample ? " · sample" : ""}`;
+      a.title = `${s.address} (${s.stageName})${s.sample ? " · data under testing" : ""}`;
       a.style.cssText = `width:14px;height:14px;border-radius:50%;background:${s.color};border:2px solid #fff;box-shadow:0 1px 4px rgba(20,20,40,.4);display:block;${s.sample ? "opacity:.7;outline:1px dashed #6c5ce7;" : ""}`;
       markers.current.push({ kind: "sites", m: new maplibregl.Marker({ element: a }).setLngLat([s.lng, s.lat]).addTo(m) });
     }

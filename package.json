@@ -9,6 +9,7 @@
     "lint": "eslint src tests playwright.config.ts vitest.config.mts",
     "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
     "db:seed": "node --env-file=.env.local scripts/seed.mjs",
+    "db:seed-demo": "node --env-file=.env.local scripts/seed-demo-sites.mjs",
     "postinstall": "node scripts/copy-maplibre.mjs",
     "predev": "node scripts/copy-maplibre.mjs",
     "prebuild": "node scripts/copy-maplibre.mjs",

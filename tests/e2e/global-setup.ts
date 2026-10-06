@@ -41,6 +41,16 @@ export default async function globalSetup() {
        values ('pen', $1, 'Penrith', 'TBC', false, 0, 'M', 'E2E', 'e2e', 'Confirm zoning', -33.751, 150.694, false)`,
       [address],
     );
+    await client.query(
+      `insert into pipeline_sites (branch_id, address, suburb, zoning, zoning_confirmed, stage, priority, signal, source, lat, lng, is_sample)
+       select 'pen', 'E2E Under Testing Row', 'Penrith', 'R3', true, 2, 'M', 'E2E', 'e2e', -33.751, 150.694, true
+       where not exists (select 1 from pipeline_sites where address = 'E2E Under Testing Row')`,
+    );
+    await client.query(
+      `insert into pipeline_sites (branch_id, address, suburb, zoning, zoning_confirmed, stage, priority, signal, source, lat, lng, is_sample)
+       select 'pen', 'E2E Under Testing Row', 'Penrith', 'R3', true, 2, 'M', 'E2E', 'e2e', -33.751, 150.694, true
+       where not exists (select 1 from pipeline_sites where address = 'E2E Under Testing Row')`,
+    );
     // One invented conversation in the dashboard database (the live source), so the buyer pages have something to show.
     await client.query(
       `insert into buyer_conversations (conversation_id, branch_id, buyer, phone, email, property, source, agent, temperature, inspection, after_hours, started_at, last_at)

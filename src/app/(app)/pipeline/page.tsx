@@ -8,6 +8,21 @@ import { canEditPipeline } from "@/lib/roles";
 import { STAGES, type Site } from "@/lib/stages";
 
 
+const TestBadge = () => <Badge tone="sample">Data under testing</Badge>;
+
+type FieldState = "working" | "building" | "needs";
+const STATE: Record<FieldState, { tone: "done" | "prototype" | "waiting"; label: string }> = {
+  working: { tone: "done", label: "Working" },
+  building: { tone: "prototype", label: "Being built" },
+  needs: { tone: "waiting", label: "Needs your input" },
+};
+const FieldTag = ({ state }: { state: FieldState }) => <Badge tone={STATE[state].tone}>{STATE[state].label}</Badge>;
+
+const COLUMNS: [string, FieldState][] = [
+  ["Address", "working"], ["Suburb", "working"], ["Stage", "working"], ["Zoning", "working"], ["Lot", "building"], ["FSR / height", "building"],
+  ["DA / CDC", "working"], ["Applicant", "building"], ["Contact", "building"], ["Ownership signal", "needs"], ["Hold (yrs)", "needs"], ["Priority", "working"], ["Next step", "working"],
+];
+
 const days = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 
 async function moveStage(formData: FormData) {
@@ -45,22 +60,42 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
   if (ctx === "denied") return <Denied />;
   const sp = await searchParams;
   const tab = sp.tab || "board";
-  const all = await query<Site>("select * from pipeline_sites where branch_id = $1 and is_sample = false order by priority, id", [ctx.branch.id]);
+  const all = await query<Site>("select * from pipeline_sites where branch_id = $1 order by priority, id", [ctx.branch.id]);
   const sites = ctx.liveOnly ? all.filter((s) => !s.is_sample) : all;
   const open = sp.site ? all.find((s) => String(s.id) === sp.site) : undefined;
   const events = open ? await query<{ at: string; actor_email: string; kind: string; detail: string }>("select at, actor_email, kind, detail from pipeline_events where site_id = $1 order by at desc limit 20", [open.id]) : [];
   const edit = canEditPipeline(ctx.session.role);
   const real = all.filter((s) => !s.is_sample);
+  const testing = all.filter((s) => s.is_sample);
+  const weekly = (rows: Site[]) => [
+    ["New DAs identified this week", rows.filter((s) => s.da_type === "DA" && days(s.identified_on) < 7).length],
+    ["New CDCs identified this week", rows.filter((s) => s.da_type === "CDC" && days(s.identified_on) < 7).length],
+    ["Approved", rows.filter((s) => s.da_status === "Approved").length],
+    ["Refused (under review)", rows.filter((s) => s.da_status === "Refused").length],
+    ["Owner or director contact still needed", rows.filter((s) => s.stage < 2).length],
+    ["Approaches made (total)", rows.filter((s) => s.stage >= 3).length],
+    ["Zoning still to confirm", rows.filter((s) => !s.zoning_confirmed).length],
+  ];
 
   return (
     <>
       <PageHeader title="Development Pipeline" status="prototype" sub="From detected site to sold. Real DAs from the tracker." />
       {real.some((s) => !s.zoning_confirmed) && <Notice>Zoning still has to be confirmed on the NSW Planning Portal before anyone acts on a site.</Notice>}
+      <div className="notice" style={{ display: "grid", gap: 10 }}>
+        <div style={{ fontWeight: 600 }}>Under active development: this page is being built week by week.</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, fontSize: 13, lineHeight: 1.5 }}>
+          <div><FieldTag state="working" /><div>The 6 real council applications are tracked. You can move sites through the stages and confirm zoning yourself.</div></div>
+          <div><FieldTag state="building" /><div>The weekly automatic feed from the NSW Planning Portal and the owner trace. Target: first Monday report in about two weeks.</div></div>
+          <div><FieldTag state="needs" /><div>The must-have field list, the hold-period rule, who runs the weekly playbook, and RP Data and Cordell access and cost.</div></div>
+        </div>
+        <div className="soft" style={{ fontSize: 12 }}>Every column below carries a marker. Rows labelled Data under testing are invented examples of what the finished page will show. <Link href="/progress">See the full progress and what we need from you</Link></div>
+      </div>
+      {!ctx.liveOnly && testing.length > 0 && <Notice>Rows marked Data under testing are invented examples that show the fields and stages we are building towards. They are not council or PRD data. Switch to Live only to hide them.</Notice>}
       <div className="grid-kpi">
         <Kpi label="Real DAs tracked" value={real.length} />
         <Kpi label="Zoning still to confirm" value={real.filter((s) => !s.zoning_confirmed).length} />
         <Kpi label="Refused, under review" value={real.filter((s) => s.da_status === "Refused").length} />
-        <Kpi label="Sites in pipeline" value={sites.length} />
+        <Kpi label={sites.some((s) => s.is_sample) ? "Sites in pipeline (incl. data under testing)" : "Sites in pipeline"} value={sites.length} />
       </div>
       <Tabs base="/pipeline" current={tab} tabs={[["board", "Board"], ["table", "Table"], ["snapshot", "Weekly snapshot"]]} />
 
@@ -79,7 +114,7 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "Zoning TBC"}</Badge>
                         <Badge>{s.priority}</Badge>
-                        {s.is_sample && <Badge tone="sample">Sample</Badge>}
+                        {s.is_sample && <TestBadge />}
                       </div>
                       <div className="soft" style={{ fontSize: 11 }}>{days(s.stage_changed_at)}d in stage</div>
                     </Link>
@@ -94,15 +129,25 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
       {tab === "table" && (
         <Card title="All sites">
           <div style={{ overflow: "auto" }}>
-            <table className="t" style={{ minWidth: 820 }}>
-              <thead><tr><th>Address</th><th>Suburb</th><th>Stage</th><th>Zoning</th><th>Signal</th><th>Priority</th><th>Next step</th></tr></thead>
+            <table className="t" style={{ minWidth: 1280 }}>
+              <thead>
+                <tr>{COLUMNS.map(([name]) => <th key={name}>{name}</th>)}</tr>
+                <tr>{COLUMNS.map(([name, state]) => <th key={name} style={{ fontWeight: 400 }}><FieldTag state={state} /></th>)}</tr>
+              </thead>
               <tbody>
                 {sites.map((s) => (
                   <tr key={s.id}>
-                    <td style={{ fontWeight: 500 }}><Link href={`/pipeline?tab=table&site=${s.id}`}>{s.address}</Link> {s.is_sample && <Badge tone="sample">Sample</Badge>}</td>
+                    <td style={{ fontWeight: 500 }}><Link href={`/pipeline?tab=table&site=${s.id}`}>{s.address}</Link> {s.is_sample && <TestBadge />}</td>
                     <td>{s.suburb}</td><td>{STAGES[s.stage]}</td>
                     <td><Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "TBC"}</Badge></td>
-                    <td className="soft">{s.signal}</td><td>{s.priority}</td><td className="soft">{s.next_step}</td>
+                    <td className="soft">{s.lot_size ?? "To confirm"}</td>
+                    <td className="soft">{s.fsr || s.height_m ? `${s.fsr ?? "?"} / ${s.height_m ?? "?"}` : "To confirm"}</td>
+                    <td className="soft">{[s.da_type, s.da_status].filter(Boolean).join(" · ")}</td>
+                    <td className="soft">{s.applicant ?? "Not yet found"}</td>
+                    <td className="soft">{s.contact_found ?? "Not yet found"}</td>
+                    <td className="soft">{s.ownership_signal ?? s.signal}</td>
+                    <td className="soft">{s.hold_years ?? ""}</td>
+                    <td>{s.priority}</td><td className="soft">{s.next_step}</td>
                   </tr>
                 ))}
               </tbody>
@@ -113,28 +158,28 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
 
       {tab === "snapshot" && (
         <Card title="Weekly snapshot" sub="Mirrors the Weekly Snapshot tab in the tracker workbook (real rows only)." source="Postgres pipeline table">
-          <table className="t"><tbody>
-            {[
-              ["New DAs identified this week", real.filter((s) => s.da_type === "DA" && days(s.identified_on) < 7).length],
-              ["Approved this week", real.filter((s) => s.da_status === "Approved" && days(s.stage_changed_at) < 7).length],
-              ["Refused (under review)", real.filter((s) => s.da_status === "Refused").length],
-              ["Owner or director contact still needed", real.filter((s) => s.stage < 2).length],
-              ["Approaches made (total)", real.filter((s) => s.stage >= 3).length],
-            ].map(([k, v]) => <tr key={String(k)}><td>{k}</td><td style={{ fontWeight: 600 }}>{v}</td></tr>)}
-          </tbody></table>
+          <table className="t">
+            <thead><tr><th>Measure</th><th>Real rows</th>{!ctx.liveOnly && testing.length > 0 && <th>Data under testing</th>}</tr></thead>
+            <tbody>
+              {weekly(real).map(([k, v], i) => (
+                <tr key={String(k)}><td>{k}</td><td style={{ fontWeight: 600 }}>{v}</td>{!ctx.liveOnly && testing.length > 0 && <td className="soft">{weekly(testing)[i][1]}</td>}</tr>
+              ))}
+            </tbody>
+          </table>
         </Card>
       )}
 
       {open && (
         <Drawer title={open.address} sub={`${open.suburb} · ${open.lot_size ?? "lot size to confirm"}`} closeHref={`/pipeline?tab=${tab}`}
-          badges={<><Badge tone="red">{STAGES[open.stage]}</Badge><Badge tone={open.zoning_confirmed ? "done" : "prototype"}>{open.zoning_confirmed ? open.zoning : "Zoning TBC: confirm before acting"}</Badge>{open.is_sample && <Badge tone="sample">Sample row</Badge>}</>}>
+          badges={<><Badge tone="red">{STAGES[open.stage]}</Badge><Badge tone={open.zoning_confirmed ? "done" : "prototype"}>{open.zoning_confirmed ? open.zoning : "Zoning TBC: confirm before acting"}</Badge>{open.is_sample && <TestBadge />}</>}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "10px 16px" }}>
-            {[["Signal", open.signal], ["DA", [open.da_type, open.da_status, open.da_number].filter(Boolean).join(" · ")], ["Source", open.source], ["Priority", open.priority], ["Assignee", open.assignee], ["Next step", open.next_step], ["Identified", open.identified_on?.toString().slice(0, 10)]].map(([k, v]) => (
+            {[["Signal", open.signal], ["DA", [open.da_type, open.da_status, open.da_number].filter(Boolean).join(" · ")], ["Council area", open.lga], ["Zoning source", open.zoning_source], ["FSR", open.fsr], ["Height limit", open.height_m], ["Applicant / company", open.applicant], ["ABN", open.abn], ["Contact found", open.contact_found], ["Ownership signal", open.ownership_signal], ["Hold period (years)", open.hold_years?.toString()], ["Source", open.source], ["Priority", open.priority], ["Assignee", open.assignee], ["Next step", open.next_step], ["Identified", open.identified_on?.toString().slice(0, 10)]].map(([k, v]) => (
               <div key={k as string}><div className="soft" style={{ fontSize: 11 }}>{k}</div><div style={{ fontWeight: 500 }}>{(v as string) || "Not set"}</div></div>
             ))}
           </div>
           {open.notes && <div className="soft">{open.notes}</div>}
-          {edit && (
+          {open.is_sample && <div className="soft">Data under testing: stage moves and zoning confirmation are switched off for invented rows.</div>}
+          {edit && !open.is_sample && (
             <>
               <form action={moveStage} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                 <input type="hidden" name="id" value={open.id} />

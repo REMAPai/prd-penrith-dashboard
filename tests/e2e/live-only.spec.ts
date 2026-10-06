@@ -28,13 +28,14 @@ test.describe("Live only toggle (read only)", () => {
     await expect(page.getByRole("button", { name: "All" })).toHaveClass(/on/);
   });
 
-  test("the pipeline shows only real sites, with no Sample labels in either mode", async ({ page }) => {
+  test("the pipeline labels invented rows as Data under testing and hides them in Live only", async ({ page }) => {
     await page.goto("/pipeline?tab=table");
     await expect(page.getByRole("link", { name: "84 Cox Avenue" })).toBeVisible();
-    await expect(page.locator("td", { hasText: "Sample" })).toHaveCount(0);
+    const testing = page.locator("tr", { hasText: "E2E Under Testing Row" });
+    await expect(testing).toContainText("Data under testing");
     await page.getByRole("button", { name: "Live only" }).click();
     await expect(page.getByRole("link", { name: "84 Cox Avenue" })).toBeVisible();
-    await expect(page.locator("td", { hasText: "Sample" })).toHaveCount(0);
+    await expect(page.locator("tr", { hasText: "E2E Under Testing Row" })).toHaveCount(0);
     await page.getByRole("button", { name: "All" }).click();
     await expect(page.getByRole("link", { name: "84 Cox Avenue" })).toBeVisible();
   });
