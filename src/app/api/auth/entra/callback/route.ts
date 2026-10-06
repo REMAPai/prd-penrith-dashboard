@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { exchangeCode } from "@/lib/entra";
+import { exchangeCode, resolveUser } from "@/lib/entra";
 import { audit, signInUser } from "@/lib/session";
 
 const base = () => process.env.AUTH_URL || "http://localhost:3000";
@@ -15,12 +15,14 @@ export async function GET(req: NextRequest) {
   if (state !== url.searchParams.get("state")) return fail("Sign-in state did not match. Try again.");
 
   try {
-    const { email } = await exchangeCode(code, verifier, nonce);
-    const s = await signInUser(email, "Microsoft Entra");
-    if (!s) {
-      await audit(email, "Sign-in denied", "Microsoft account has no active user in this app");
-      return fail("Your Microsoft account is not set up for this dashboard. Ask your admin to add you.");
+    const id = await exchangeCode(code, verifier, nonce);
+    const who = await resolveUser(id);
+    if ("error" in who) {
+      await audit(id.email, "Sign-in denied", `${who.error} (tenant ${id.tid})`);
+      return fail(who.error);
     }
+    const s = await signInUser(who.email, "Microsoft Entra");
+    if (!s) return fail("Your account is not active.");
     const res = NextResponse.redirect(new URL(s.role === "platform_admin" ? "/companies" : "/progress", base()));
     res.cookies.delete({ name: "prd_oidc", path: "/api/auth/entra" });
     return res;
