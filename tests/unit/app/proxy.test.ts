@@ -12,6 +12,26 @@ describe("proxy: open paths", () => {
   });
 });
 
+describe("proxy: exact open-path matching", () => {
+  it.each([
+    "/login", "/login/", "/login/reset", "/maplibre/maplibre-gl-shared.mjs", "/api/auth/entra/login", "/api/auth/entra/callback",
+    "/api/ingest/claim", "/api/ingest/turn", "/_next/static/a.js", "/_next/image", "/favicon.ico",
+  ])("allows %s", (p) => expect(passes(proxy(req(p)))).toBe(true));
+
+  it.each([
+    "/loginx", "/login-evil", "/maplibre", "/maplibre/", "/maplibre-evil", "/maplibre/a/b", "/api/ingest", "/api/ingest/", "/api/ingestx", "/api/ingest/a/b",
+    "/api/auth", "/api/auth/other", "/api/auth/entra", "/api/auth/entra/login/x", "/api/auth/entra/loginx", "/_nextx/a", "/favicon.icox",
+  ])("blocks %s without a cookie", (p) => {
+    const r = proxy(req(p));
+    expect(r.status).toBe(307);
+    expect(new URL(r.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("lets a blocked path through with a session cookie", () => {
+    expect(passes(proxy(req("/loginx", "prd_session=x")))).toBe(true);
+  });
+});
+
 describe("proxy: protected paths", () => {
   it.each(["/", "/progress", "/buyer?tab=quality", "/users", "/api/anything-else", "/favicon.ico.bak"])("redirects %s to /login without a cookie", (p) => {
     const r = proxy(req(p));

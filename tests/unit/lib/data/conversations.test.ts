@@ -3,6 +3,7 @@ import { convo, turn } from "@tests/helpers/conversation";
 import { getConversations, mask, qualityFlags } from "@/lib/data/conversations";
 
 const configure = () => {
+  vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
   vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
   vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "pass phrase");
   vi.stubEnv("N8N_BASE_URL", "https://n8n.test/");
@@ -31,6 +32,34 @@ describe("getConversations", () => {
     expect(String(vi.mocked(fetch).mock.calls[0][0])).toMatch(/^https:\/\/hooks\.test\/convos\?/);
   });
 
+  it("is opt-in: never calls the webhook unless CONVERSATIONS_WEBHOOK_ENABLED is exactly true", async () => {
+    configure();
+    for (const v of ["", "false", "1", "TRUE"]) {
+      vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", v);
+      const spy = vi.fn();
+      vi.stubGlobal("fetch", spy);
+      const r = await getConversations("pen");
+      expect(r.status).toBe("waiting");
+      expect(r.data).toEqual([]);
+      expect(spy).not.toHaveBeenCalled();
+    }
+  });
+
+  it("never puts the webhook URL or passphrase in the note when the request fails", async () => {
+    configure();
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("getaddrinfo https://n8n.test/webhook/prd-buyer-conversations?email=ops@example.test&key=pass%20phrase"); }));
+    const r = await getConversations("pen");
+    expect(r.status).toBe("waiting");
+    expect(r.note).toContain("n8n request failed");
+    expect(JSON.stringify(r)).not.toMatch(/pass(%20| )phrase|n8n\.test|key=/);
+  });
+
+  it("is waiting when the body is not JSON", async () => {
+    configure();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => { throw new Error("bad json"); } })));
+    expect((await getConversations("pen")).note).toContain("Unexpected payload");
+  });
+
   it("is waiting with no data and a note when the log returns an error", async () => {
     configure();
     reply({}, false, 500);
@@ -47,7 +76,7 @@ describe("getConversations", () => {
     reply({ message: "unauthorised" });
     expect((await getConversations("pen")).note).toContain("Unexpected payload");
     vi.stubGlobal("fetch", vi.fn(async () => { throw "weird"; }));
-    expect((await getConversations("pen")).note).toContain("error");
+    expect((await getConversations("pen")).note).toContain("n8n request failed");
   });
 
   it("is waiting with no data and a how-to-connect note for Penrith when not configured", async () => {
@@ -55,6 +84,7 @@ describe("getConversations", () => {
     expect(r.status).toBe("waiting");
     expect(r.note).toContain("CONVERSATIONS_WEBHOOK_EMAIL");
     expect(r.note).toContain("N8N_BASE_URL");
+    expect(r.note).toContain("CONVERSATIONS_WEBHOOK_ENABLED");
     expect(r.data).toEqual([]);
   });
 
@@ -101,6 +131,21 @@ describe("qualityFlags", () => {
     const same = "Thanks for your enquiry about this property, I can help with that today.";
     const c = convo({}, [turn("a", same + " A"), turn("b", same + " B"), turn("c", same + " C")]);
     expect(kinds([c])).toContain("Repeated reply opening");
+  });
+
+  it("flags exactly two identical replies", () => {
+    const same = "Thanks for your enquiry, I can help with inspection times today.";
+    expect(kinds([convo({}, [turn("a", same), turn("b", same)])])).toContain("Repeated reply opening");
+  });
+
+  it("flags a duplicate pair among distinct replies", () => {
+    const c = convo({}, [turn("a", "Yes it is available."), turn("b", "Open home is Saturday."), turn("c", "Yes it is available.")]);
+    expect(kinds([c])).toContain("Repeated reply opening");
+  });
+
+  it("does not flag a single reply or two distinct replies", () => {
+    expect(kinds([convo({}, [turn("a", "Yes it is available.")])])).not.toContain("Repeated reply opening");
+    expect(kinds([convo({}, [turn("a", "Yes it is available."), turn("b", "Open home is Saturday.")])])).not.toContain("Repeated reply opening");
   });
 
   it("does not flag replies with different openings", () => {

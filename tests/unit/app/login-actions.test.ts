@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import bcrypt from "bcryptjs";
-import { routeDb, query } from "@tests/helpers/db";
+import { callsMatching, query } from "@tests/helpers/db";
 import { redirect } from "@tests/helpers/next";
 import { form, makeSession } from "@tests/helpers/fixtures";
 
@@ -17,9 +17,26 @@ beforeAll(async () => {
 });
 afterEach(() => vi.useRealTimers());
 
-const user = (over: Record<string, unknown> = {}) => routeDb([[/from users/, [{ password_hash: hash, status: "active", ...over }]]]);
-let n = 0;
-const fresh = () => `user${++n}@test.example`; // the limiter is module-level state, so each test uses its own address
+let failures: Record<string, number> = {};
+let userRows: Record<string, unknown>[] = [];
+let dbDown = false;
+const setupDb = () => {
+  failures = {};
+  dbDown = false;
+  query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+    if (dbDown) throw new Error("db down");
+    if (/count\(\*\)::int as n from login_attempts/.test(sql)) return [{ n: failures[String(params[0])] ?? 0 }];
+    if (/insert into login_attempts/.test(sql)) failures[String(params[0])] = (failures[String(params[0])] ?? 0) + 1;
+    if (/delete from login_attempts where email/.test(sql)) delete failures[String(params[0])];
+    if (/from users/.test(sql)) return userRows;
+    return [];
+  });
+};
+const user = (over: Record<string, unknown> = {}) => {
+  userRows = [{ password_hash: hash, status: "active", ...over }];
+  setupDb();
+};
+const fresh = () => "user@test.example";
 const login = (email: string, password: string) => passwordLogin(undefined, form({ email, password }));
 
 describe("passwordLogin", () => {
@@ -46,7 +63,8 @@ describe("passwordLogin", () => {
 
   it("gives the same error for an unknown user, an inactive user and a user with no password", async () => {
     const email = fresh();
-    routeDb([[/from users/, []]]);
+    user();
+    userRows = [];
     const unknown = await login(email, "correct horse");
     user({ status: "deactivated" });
     const inactive = await login(email, "correct horse");
@@ -56,16 +74,34 @@ describe("passwordLogin", () => {
     expect(sess.signInUser).not.toHaveBeenCalled();
   });
 
-  it("locks the address after five failures, even for the right password, then recovers after 10 minutes", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+  it("locks the address after five failures, even for the right password; the window is evaluated in SQL", async () => {
     user();
     const email = fresh();
     for (let i = 0; i < 5; i++) expect(await login(email, "bad")).toEqual({ error: "Wrong email or password." });
     expect(await login(email, "correct horse")).toEqual({ error: "Too many attempts. Try again in a few minutes." });
     expect(sess.signInUser).not.toHaveBeenCalled();
-    vi.setSystemTime(Date.now() + 10 * 60 * 1000 + 1000);
+    expect(callsMatching(/insert into login_attempts/)).toHaveLength(5);
+    expect(String(callsMatching(/count\(\*\)/)[0][0])).toContain("interval '10 minutes'");
+    failures = {};
     sess.signInUser.mockResolvedValue(makeSession("branch_admin"));
     await expect(login(email, "correct horse")).rejects.toMatchObject({ url: "/progress" });
+  });
+
+  it("deletes the address's attempts on success and cleans rows older than a day on failure", async () => {
+    user();
+    const email = fresh();
+    await login(email, "bad");
+    expect(String(callsMatching(/delete from login_attempts where at/)[0][0])).toContain("interval '1 day'");
+    sess.signInUser.mockResolvedValue(makeSession("branch_admin"));
+    await expect(login(email, "correct horse")).rejects.toMatchObject({ url: "/progress" });
+    expect(callsMatching(/delete from login_attempts where email/)[0][1]).toEqual([email]);
+  });
+
+  it("fails closed when the database is down", async () => {
+    user();
+    dbDown = true;
+    expect(await login(fresh(), "correct horse")).toEqual({ error: "Sign-in is unavailable right now. Try again shortly." });
+    expect(sess.signInUser).not.toHaveBeenCalled();
   });
 
   it("counts failures per address, case-insensitively", async () => {
@@ -73,7 +109,7 @@ describe("passwordLogin", () => {
     const email = fresh();
     for (let i = 0; i < 5; i++) await login(i % 2 ? email.toUpperCase() : email, "bad");
     expect((await login(email, "bad")).error).toContain("Too many");
-    expect((await login(fresh(), "bad")).error).toBe("Wrong email or password.");
+    expect((await login("other@test.example", "bad")).error).toBe("Wrong email or password.");
   });
 
   it("a success clears earlier failures", async () => {

@@ -74,7 +74,27 @@ describe("conversation quality bugs", () => {
   });
 
   // Bug: a pair of identical replies (the most common duplicate) is not flagged because the check tolerates one repeat.
-  it.todo("REGRESSION two identical replies to one message should also be flagged (needs `< replies.length` in qualityFlags)");
+  it("REGRESSION two identical replies to one message should also be flagged", () => {
+    const body = "Thanks for your enquiry about this property, I can help with inspection times today.";
+    expect(kinds([convo({}, [turn("Is it available?", body), turn("Is it available?", body)])])).toContain("Repeated reply opening");
+    expect(kinds([convo({}, [turn("a", "Yes it is available."), turn("b", "Open home is Saturday.")])])).not.toContain("Repeated reply opening");
+  });
+
+  // Bug: the passphrase-in-URL n8n webhook was always called when configured; it is now opt-in and its URL never leaks into errors.
+  it("REGRESSION conversation webhook only called when explicitly enabled, URL never in the note", async () => {
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "secret-pass");
+    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
+    const spy = vi.fn(async () => { throw new Error("connect https://n8n.test/webhook/x?key=secret-pass"); });
+    vi.stubGlobal("fetch", spy);
+    const off = await getConversations("pen");
+    expect(off.status).toBe("waiting");
+    expect(off.data).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
+    const r = await getConversations("pen");
+    expect(JSON.stringify(r)).not.toMatch(/secret-pass|n8n\.test|key=/);
+  });
 
   // Bug: the assistant asked buyers preference questions (type of property, bedrooms) it must never ask.
   it("REGRESSION preference questions asked of buyers", () => {
@@ -119,6 +139,7 @@ describe("listing data bugs", () => {
 describe("tenancy and access bugs", () => {
   // Bug: a buyer conversation from the live Penrith log was shown while viewing another branch.
   it("REGRESSION conversation shown for a different branch", async () => {
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
     vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
@@ -180,6 +201,23 @@ describe("tenancy and access bugs", () => {
       const r = proxy(new NextRequest(`http://localhost:3100${path}`));
       expect(r.status, path).toBe(307);
       expect(new URL(r.headers.get("location")!).pathname, path).toBe("/login");
+    }
+  });
+
+  // Bug: the proxy treated any path merely starting with /login, /maplibre or /api/ingest as open.
+  it("REGRESSION look-alike paths (/loginx, /maplibre-evil, /api/ingestx) are not open", () => {
+    for (const path of ["/loginx", "/maplibre-evil", "/api/ingestx", "/api/auth/other"]) {
+      expect(proxy(new NextRequest(`http://localhost:3100${path}`)).status, path).toBe(307);
+    }
+  });
+
+  // Bug: a malformed prd_oidc cookie made the Entra callback throw a 500.
+  it("REGRESSION malformed prd_oidc cookie redirects to /login instead of a 500", async () => {
+    for (const bad of ["not-json", JSON.stringify({ state: "s" }), JSON.stringify({ state: "", nonce: "n", verifier: "v" })]) {
+      const res = await entraCallback(new NextRequest("http://localhost:3100/api/auth/entra/callback?code=c&state=s", { headers: { cookie: `prd_oidc=${encodeURIComponent(bad)}` } }));
+      expect(res.status).toBe(307);
+      expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+      expect(res.headers.get("set-cookie")).toMatch(/prd_oidc=;/);
     }
   });
 
@@ -268,6 +306,7 @@ describe("data honesty bugs", () => {
 
   // Bug: a failed live read left the page claiming Live; it must fall back to Waiting with no data and a note.
   it("REGRESSION failed live read still labelled live", async () => {
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
     vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
     vi.stubEnv("N8N_BASE_URL", "https://n8n.test");

@@ -23,8 +23,10 @@ async function toggleAsk(formData: FormData) {
   "use server";
   const ctx = await access("progress");
   if (!ctx || ctx === "denied" || ctx.session.role === "viewer") return;
+  const companyId = ctx.branch?.company_id;
+  if (!companyId) return;
   const id = Number(formData.get("id"));
-  const rows = await query<{ status: string; text: string }>("update progress_items set status = case when status = 'done' then 'open' else 'done' end where id = $1 and kind = 'ask' returning status, text", [id]);
+  const rows = await query<{ status: string; text: string }>("update progress_items set status = case when status = 'done' then 'open' else 'done' end where id = $1 and kind = 'ask' and company_id = $2 returning status, text", [id, companyId]);
   if (rows[0]) await audit(ctx.session.email, "Progress item", `${rows[0].status === "done" ? "Done" : "Reopened"}: ${rows[0].text}`, ctx.branch.company_id, ctx.branch.id);
   revalidatePath("/progress");
 }
@@ -33,7 +35,7 @@ export default async function Progress() {
   const ctx = await access("progress");
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
-  const items = await query<Item>("select id, project, kind, text, owner, due, status from progress_items order by id");
+  const items = await query<Item>("select id, project, kind, text, owner, due, status from progress_items where company_id = $1 order by id", [ctx.branch?.company_id ?? null]);
   const day = Math.max(1, Math.ceil((nowMs() - ENGAGEMENT_START.getTime()) / 86400000));
   const canTick = ctx.session.role !== "viewer";
 
