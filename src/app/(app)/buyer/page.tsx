@@ -32,7 +32,6 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
     ["Enquiries", rows.length],
     ["Buyer replied", rows.filter((c) => c.turns.length > 1).length],
     ["Inspection offered or booked", rows.filter((c) => c.inspection !== "not_discussed").length],
-    ["Ready for an agent", rows.filter((c) => c.readyForAgent).length],
     ["Hot", rows.filter((c) => c.temperature === "Hot").length],
   ] as [string, number][];
 
@@ -44,7 +43,6 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
       <div className="grid-kpi">
         <Kpi label="Enquiries (7 days)" value={week.length} status={st} />
         <Kpi label="After hours" value={week.filter((c) => c.afterHours).length} status={st} />
-        <Kpi label="Ready for an agent" value={rows.filter((c) => c.readyForAgent).length} status={st} />
         <Kpi label="Hot buyers" value={rows.filter((c) => c.temperature === "Hot").length} status={st} />
         <Kpi label="Median turns per chat" value={median(rows.map((c) => c.turns.length))} status={st} />
       </div>
