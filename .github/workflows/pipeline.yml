@@ -1,0 +1,74 @@
+name: pipeline
+
+on:
+  pull_request:
+    branches: [staging, production]
+  push:
+    branches: [staging, production]
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  deploy-staging:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Trigger Dokploy deploy
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          APPLICATION_ID: ${{ vars.DOKPLOY_STAGING_APP_ID }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/out -w "%{http_code}" -X POST "$DOKPLOY_URL/api/application.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" -H "content-type: application/json" \
+            -d "{\"applicationId\":\"$APPLICATION_ID\",\"title\":\"${GITHUB_SHA::7}\",\"description\":\"GitHub Actions ${GITHUB_RUN_ID}\"}")
+          echo "Dokploy responded $code"
+          [ "$code" -lt 300 ] || { cat /tmp/out; exit 1; }
+      - name: Wait for the site to answer
+        env:
+          SITE_URL: ${{ vars.STAGING_URL }}
+        run: |
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL/login" || true)
+            echo "attempt $i: $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "Site did not become healthy in 10 minutes" && exit 1
+
+  deploy-production:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/production' && vars.DOKPLOY_PRODUCTION_APP_ID != ''
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Dokploy deploy
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          APPLICATION_ID: ${{ vars.DOKPLOY_PRODUCTION_APP_ID }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/out -w "%{http_code}" -X POST "$DOKPLOY_URL/api/application.deploy" \
+            -H "x-api-key: $DOKPLOY_API_KEY" -H "content-type: application/json" \
+            -d "{\"applicationId\":\"$APPLICATION_ID\",\"title\":\"${GITHUB_SHA::7}\",\"description\":\"GitHub Actions ${GITHUB_RUN_ID}\"}")
+          echo "Dokploy responded $code"
+          [ "$code" -lt 300 ] || { cat /tmp/out; exit 1; }
