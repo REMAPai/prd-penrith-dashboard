@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { query } from "@tests/helpers/db";
+import { query, routeDb } from "@tests/helpers/db";
 
 vi.mock("@/lib/db", async () => (await import("@tests/helpers/db")).dbMock);
 
@@ -14,7 +14,7 @@ describe("checkSources", () => {
     expect((await checkSources()).map((h) => h.name)).toEqual([
       "Postgres (app database)",
       "n8n (workflows and executions)",
-      "Conversation log (Google Sheet via n8n)",
+      "Buyer conversations (dashboard database)",
       "MRI Vault (listings, contacts)",
       "ClickSend (SMS)",
       "Microsoft Entra sign-in",
@@ -70,13 +70,26 @@ describe("checkSources", () => {
     });
   });
 
-  describe("conversation log", () => {
-    it("is waiting until both variables are set, then live without any network call", async () => {
-      expect(await get("Conversation log")).toMatchObject({ status: "waiting", owner: "Hamza" });
+  describe("buyer conversations", () => {
+    it("is live with the stored count when the table has rows", async () => {
+      routeDb([[/from buyer_conversations/, [{ n: 7 }]]]);
+      expect(await get("Buyer conversations")).toMatchObject({ status: "live", detail: "7 stored" });
+    });
+
+    it("is waiting (needs INGEST_API_KEY) when nothing is stored", async () => {
+      routeDb([[/from buyer_conversations/, [{ n: 0 }]]]);
+      const h = await get("Buyer conversations");
+      expect(h).toMatchObject({ status: "waiting", detail: "Nothing stored yet", owner: "Hamza" });
+      expect(h.needs).toContain("INGEST_API_KEY");
+      query.mockImplementation(async () => []);
+      expect((await get("Buyer conversations")).status).toBe("waiting");
+    });
+
+    it("is waiting, not live, when the table cannot be read, and ignores the old webhook variables", async () => {
       vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
-      expect((await get("Conversation log")).status).toBe("waiting");
       vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "e@x.test");
-      expect(await get("Conversation log")).toMatchObject({ status: "live", detail: "Configured" });
+      query.mockImplementation(async (sql: string) => { if (/buyer_conversations/.test(sql)) throw new Error("no table"); return []; });
+      expect(await get("Buyer conversations")).toMatchObject({ status: "waiting", detail: "Cannot read the table" });
     });
   });
 

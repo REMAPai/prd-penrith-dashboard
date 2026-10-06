@@ -61,6 +61,13 @@ describe("entra callback route", () => {
     expect(entra.exchangeCode).not.toHaveBeenCalled();
   });
 
+  it.each(["not json", "null", "[]", JSON.stringify({ state: "s1", nonce: "n1" }), JSON.stringify({ state: "s1", nonce: "", verifier: "v" }), JSON.stringify({ state: 1, nonce: "n", verifier: "v" })])("redirects to /login and clears the cookie for a malformed state cookie %s", async (bad) => {
+    const r = await call("?code=abc&state=s1", `prd_oidc=${encodeURIComponent(bad)}`);
+    failedWith(r, "invalid");
+    expect(r.headers.get("set-cookie")).toMatch(/prd_oidc=;/);
+    expect(entra.exchangeCode).not.toHaveBeenCalled();
+  });
+
   it("fails when the code is missing", async () => {
     failedWith(await call("?state=s1"), "Sign-in session expired");
   });

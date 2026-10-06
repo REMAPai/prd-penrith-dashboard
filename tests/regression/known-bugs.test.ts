@@ -74,7 +74,28 @@ describe("conversation quality bugs", () => {
   });
 
   // Bug: a pair of identical replies (the most common duplicate) is not flagged because the check tolerates one repeat.
-  it.todo("REGRESSION two identical replies to one message should also be flagged (needs `< replies.length` in qualityFlags)");
+  it("REGRESSION two identical replies to one message should also be flagged", () => {
+    const body = "Thanks for your enquiry about this property, I can help with inspection times today.";
+    expect(kinds([convo({}, [turn("Is it available?", body), turn("Is it available?", body)])])).toContain("Repeated reply opening");
+    expect(kinds([convo({}, [turn("a", "Yes it is available."), turn("b", "Open home is Saturday.")])])).not.toContain("Repeated reply opening");
+  });
+
+  // Bug: the passphrase-in-URL n8n webhook was always called when configured; the path is removed, so n8n is never called and nothing leaks.
+  it("REGRESSION conversations never call the n8n webhook or leak its URL or passphrase", async () => {
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_ENABLED", "true");
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
+    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "secret-pass");
+    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
+    const spy = vi.fn(async () => { throw new Error("connect https://n8n.test/webhook/x?key=secret-pass"); });
+    vi.stubGlobal("fetch", spy);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    query.mockRejectedValue(new Error("db down secret-pass"));
+    const r = await getConversations("pen");
+    expect(r.status).toBe("waiting");
+    expect(r.data).toEqual([]);
+    expect(spy).not.toHaveBeenCalled();
+    expect(JSON.stringify(r)).not.toMatch(/secret-pass|n8n\.test|key=/);
+  });
 
   // Bug: the assistant asked buyers preference questions (type of property, bedrooms) it must never ask.
   it("REGRESSION preference questions asked of buyers", () => {
@@ -119,14 +140,16 @@ describe("listing data bugs", () => {
 describe("tenancy and access bugs", () => {
   // Bug: a buyer conversation from the live Penrith log was shown while viewing another branch.
   it("REGRESSION conversation shown for a different branch", async () => {
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
-    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
-    const spy = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ generatedAt: "x", sendingLive: true, totalConversations: 1, conversations: [convo({ conversationId: "PEN-LIVE" })] }) }));
+    const row = { conversation_id: "PEN-LIVE", enquiry_id: "e", buyer: "B", phone: "", email: "", property: "", source: "", agent: "", temperature: "Hot", buyer_type: "", finance_status: "", needs_to_sell_first: "", timeframe: "", inspection: "", wants_contract: false, consent: "", ready_for_agent: false, why_ready: "", handoff_status: "none", sla_due_at: null, after_hours: false, started_at: new Date(), last_at: new Date() };
+    routeDb([[/from buyer_conversations/, [row]], [/from buyer_turns/, []]]);
+    const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
+    query.mockClear();
     const bm = await getConversations("bm");
     expect(spy).not.toHaveBeenCalled();
-    expect(bm.status).toBe("sample");
+    expect(query).not.toHaveBeenCalled();
+    expect(bm.status).toBe("waiting");
+    expect(bm.data).toEqual([]);
     expect(JSON.stringify(bm.data)).not.toContain("PEN-LIVE");
     expect((await getConversations("pen")).data[0].conversationId).toBe("PEN-LIVE");
   });
@@ -179,6 +202,23 @@ describe("tenancy and access bugs", () => {
       const r = proxy(new NextRequest(`http://localhost:3100${path}`));
       expect(r.status, path).toBe(307);
       expect(new URL(r.headers.get("location")!).pathname, path).toBe("/login");
+    }
+  });
+
+  // Bug: the proxy treated any path merely starting with /login, /maplibre or /api/ingest as open.
+  it("REGRESSION look-alike paths (/loginx, /maplibre-evil, /api/ingestx) are not open", () => {
+    for (const path of ["/loginx", "/maplibre-evil", "/api/ingestx", "/api/auth/other"]) {
+      expect(proxy(new NextRequest(`http://localhost:3100${path}`)).status, path).toBe(307);
+    }
+  });
+
+  // Bug: a malformed prd_oidc cookie made the Entra callback throw a 500.
+  it("REGRESSION malformed prd_oidc cookie redirects to /login instead of a 500", async () => {
+    for (const bad of ["not-json", JSON.stringify({ state: "s" }), JSON.stringify({ state: "", nonce: "n", verifier: "v" })]) {
+      const res = await entraCallback(new NextRequest("http://localhost:3100/api/auth/entra/callback?code=c&state=s", { headers: { cookie: `prd_oidc=${encodeURIComponent(bad)}` } }));
+      expect(res.status).toBe(307);
+      expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+      expect(res.headers.get("set-cookie")).toMatch(/prd_oidc=;/);
     }
   });
 
@@ -259,17 +299,16 @@ describe("data honesty bugs", () => {
   it("REGRESSION buyer page badge comes from the data result, never hard-coded live", async () => {
     signedInAs(makeSession("agent"));
     const html = await renderPage(Buyer as never, { searchParams: Promise.resolve({}) });
-    expect(html).toContain("b-sample");
+    expect(html).toContain("b-waiting");
+    expect(html).not.toContain("b-sample");
     expect(html).not.toContain("b-live");
     expect(html).not.toContain("Real conversations from the conversation log");
   });
 
-  // Bug: a failed live read left the page claiming Live; it must fall back to Waiting with sample data and a note.
+  // Bug: a failed live read left the page claiming Live; it must fall back to Waiting with no data and a note.
   it("REGRESSION failed live read still labelled live", async () => {
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
-    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) })));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    query.mockRejectedValue(new Error("db down"));
     const r = await getConversations("pen");
     expect(r.status).toBe("waiting");
     expect(r.note).toBeTruthy();

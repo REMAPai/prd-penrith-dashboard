@@ -223,17 +223,15 @@ describe("buyer page: masking and reveal", () => {
 
 describe("buyer page: live log", () => {
   it("shows Live with the outbound-held notice and no sample ribbon", async () => {
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "k");
-    vi.stubEnv("N8N_BASE_URL", "https://n8n.test");
-    const live = { generatedAt: "2026-10-06T00:00:00Z", sendingLive: false, totalConversations: 0, conversations: [] };
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => live })));
     as("agent");
+    const seeded = query.getMockImplementation()!;
+    const convRoutes: [RegExp, unknown[]][] = [[/from buyer_conversations/, [{ conversation_id: "c1", enquiry_id: "e1", buyer: "Pat", phone: "0400", email: "p@example.test", property: "1 A St", source: "REA", agent: "", temperature: "Hot", buyer_type: "Investor", finance_status: "", needs_to_sell_first: "", timeframe: "", inspection: "", wants_contract: false, consent: "Yes", ready_for_agent: false, why_ready: "", handoff_status: "none", sla_due_at: null, after_hours: false, started_at: new Date("2026-10-06T00:00:00Z"), last_at: new Date("2026-10-06T00:00:00Z") }]], [/from buyer_turns/, []]];
+    query.mockImplementation(async (sql, params) => { for (const [re, out] of convRoutes) if (re.test(sql)) return out; return seeded(sql, params); });
     const html = await renderPage(Buyer, sp());
     expect(html).toContain("Real conversations from the conversation log");
     expect(html).toContain("Outbound sending is held");
     expect(html).not.toContain("SAMPLE DATA");
-    expect(html).toContain("Source: n8n conversation log");
+    expect(html).toContain("Dashboard database, written by n8n on every turn");
   });
 });
 

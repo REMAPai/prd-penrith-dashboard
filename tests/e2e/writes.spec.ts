@@ -10,6 +10,13 @@ test.describe.configure({ mode: "serial" });
 test.describe("WRITES DATA: development pipeline", () => {
   test.use({ storageState: stateFile("branch_admin") });
 
+  // Serial groups rerun from the top on retry but keep database state, so start every attempt from a known site state.
+  test.beforeAll(async () => {
+    const { address } = runInfo();
+    await dbRows("delete from pipeline_events where site_id in (select id from pipeline_sites where address = $1)", [address]);
+    await dbRows("update pipeline_sites set stage = 0, zoning = 'TBC', zoning_confirmed = false where address = $1", [address]);
+  });
+
   test("moving a stage updates the card, shows in history and writes an audit row", async ({ page }) => {
     const { address } = runInfo();
     await page.goto("/pipeline?tab=table");
@@ -105,7 +112,9 @@ test.describe("WRITES DATA: feedback", () => {
     await expect(row).toContainText("Map");
     await expect(row.getByRole("button", { name: /\+1 · 0/ })).toBeVisible();
     await row.getByRole("button", { name: /\+1/ }).click();
-    await expect(page.locator("tr", { hasText: body }).getByRole("button", { name: "+1 · 1" })).toBeVisible();
+    const voted = page.locator("tr", { hasText: body }).getByRole("button", { name: "Voted · 1" });
+    await expect(voted).toBeVisible();
+    await expect(voted).toBeDisabled(); // one vote per user
     await expect(page.locator("tr", { hasText: body }).getByText("New", { exact: true })).toBeVisible();
   });
 

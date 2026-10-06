@@ -1,74 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { convo, turn } from "@tests/helpers/conversation";
-import { getConversations, mask, qualityFlags } from "@/lib/data/conversations";
-
-const configure = () => {
-  vi.stubEnv("CONVERSATIONS_WEBHOOK_EMAIL", "ops@example.test");
-  vi.stubEnv("CONVERSATIONS_WEBHOOK_KEY", "pass phrase");
-  vi.stubEnv("N8N_BASE_URL", "https://n8n.test/");
-};
-const reply = (body: unknown, ok = true, status = 200) => vi.stubGlobal("fetch", vi.fn(async () => ({ ok, status, json: async () => body })));
-const payload = { generatedAt: "2026-10-06T00:00:00Z", sendingLive: false, totalConversations: 1, conversations: [convo({ conversationId: "live-1" })] };
-
-describe("getConversations", () => {
-  it("is live for the Penrith branch when configured and the log answers", async () => {
-    configure();
-    reply(payload);
-    const r = await getConversations("pen");
-    expect(r).toMatchObject({ status: "live", asOf: payload.generatedAt, sendingLive: false });
-    expect(r.data.map((c) => c.conversationId)).toEqual(["live-1"]);
-    const url = new URL(String(vi.mocked(fetch).mock.calls[0][0]));
-    expect(url.origin + url.pathname).toBe("https://n8n.test/webhook/prd-buyer-conversations");
-    expect(url.searchParams.get("email")).toBe("ops@example.test");
-    expect(url.searchParams.get("key")).toBe("pass phrase");
-  });
-
-  it("prefers an explicit webhook URL", async () => {
-    configure();
-    vi.stubEnv("CONVERSATIONS_WEBHOOK_URL", "https://hooks.test/convos");
-    reply(payload);
-    await getConversations("pen");
-    expect(String(vi.mocked(fetch).mock.calls[0][0])).toMatch(/^https:\/\/hooks\.test\/convos\?/);
-  });
-
-  it("is waiting with no data and a note when the log returns an error", async () => {
-    configure();
-    reply({}, false, 500);
-    const r = await getConversations("pen");
-    expect(r.status).toBe("waiting");
-    expect(r.note).toContain("n8n returned 500");
-    expect(r.data).toEqual([]);
-    expect(r.note).toContain("Could not read the live log");
-    expect(r.note).not.toContain("sample");
-  });
-
-  it("is waiting when the payload is wrong (bad passphrase) or the request throws", async () => {
-    configure();
-    reply({ message: "unauthorised" });
-    expect((await getConversations("pen")).note).toContain("Unexpected payload");
-    vi.stubGlobal("fetch", vi.fn(async () => { throw "weird"; }));
-    expect((await getConversations("pen")).note).toContain("error");
-  });
-
-  it("is waiting with no data and a how-to-connect note for Penrith when not configured", async () => {
-    const r = await getConversations("pen");
-    expect(r.status).toBe("waiting");
-    expect(r.note).toContain("CONVERSATIONS_WEBHOOK_EMAIL");
-    expect(r.note).toContain("N8N_BASE_URL");
-    expect(r.data).toEqual([]);
-  });
-
-  it("is always waiting with no data for other branches, even when configured, and never calls the log", async () => {
-    configure();
-    const spy = vi.fn();
-    vi.stubGlobal("fetch", spy);
-    const r = await getConversations("bm");
-    expect(r.status).toBe("waiting");
-    expect(r.note).toBe("Live conversations are only connected for the Penrith branch.");
-    expect(r.data).toEqual([]);
-    expect(spy).not.toHaveBeenCalled();
-  });
-});
+import { mask, qualityFlags } from "@/lib/data/conversations";
 
 describe("qualityFlags", () => {
   const kinds = (c: ReturnType<typeof convo>[]) => qualityFlags(c).map((f) => f.kind);
@@ -101,6 +33,21 @@ describe("qualityFlags", () => {
     const same = "Thanks for your enquiry about this property, I can help with that today.";
     const c = convo({}, [turn("a", same + " A"), turn("b", same + " B"), turn("c", same + " C")]);
     expect(kinds([c])).toContain("Repeated reply opening");
+  });
+
+  it("flags exactly two identical replies", () => {
+    const same = "Thanks for your enquiry, I can help with inspection times today.";
+    expect(kinds([convo({}, [turn("a", same), turn("b", same)])])).toContain("Repeated reply opening");
+  });
+
+  it("flags a duplicate pair among distinct replies", () => {
+    const c = convo({}, [turn("a", "Yes it is available."), turn("b", "Open home is Saturday."), turn("c", "Yes it is available.")]);
+    expect(kinds([c])).toContain("Repeated reply opening");
+  });
+
+  it("does not flag a single reply or two distinct replies", () => {
+    expect(kinds([convo({}, [turn("a", "Yes it is available.")])])).not.toContain("Repeated reply opening");
+    expect(kinds([convo({}, [turn("a", "Yes it is available."), turn("b", "Open home is Saturday.")])])).not.toContain("Repeated reply opening");
   });
 
   it("does not flag replies with different openings", () => {

@@ -73,18 +73,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - name: Trigger Dokploy deploy
+      - uses: actions/checkout@v4
+      - name: Deploy to Dokploy and wait for the build
         env:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
           APPLICATION_ID: ${{ vars.DOKPLOY_STAGING_APP_ID }}
-        run: |
-          set -euo pipefail
-          code=$(curl -sS -o /tmp/out -w "%{http_code}" -X POST "$DOKPLOY_URL/api/application.deploy" \
-            -H "x-api-key: $DOKPLOY_API_KEY" -H "content-type: application/json" \
-            -d "{\"applicationId\":\"$APPLICATION_ID\",\"title\":\"${GITHUB_SHA::7}\",\"description\":\"GitHub Actions ${GITHUB_RUN_ID}\"}")
-          echo "Dokploy responded $code"
-          [ "$code" -lt 300 ] || { cat /tmp/out; exit 1; }
+        run: bash scripts/ci/dokploy-deploy.sh
       - name: Wait for the site to answer
         env:
           SITE_URL: ${{ vars.STAGING_URL }}
@@ -103,15 +98,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Trigger Dokploy deploy
+      - uses: actions/checkout@v4
+      - name: Deploy to Dokploy and wait for the build
         env:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
           APPLICATION_ID: ${{ vars.DOKPLOY_PRODUCTION_APP_ID }}
-        run: |
-          set -euo pipefail
-          code=$(curl -sS -o /tmp/out -w "%{http_code}" -X POST "$DOKPLOY_URL/api/application.deploy" \
-            -H "x-api-key: $DOKPLOY_API_KEY" -H "content-type: application/json" \
-            -d "{\"applicationId\":\"$APPLICATION_ID\",\"title\":\"${GITHUB_SHA::7}\",\"description\":\"GitHub Actions ${GITHUB_RUN_ID}\"}")
-          echo "Dokploy responded $code"
-          [ "$code" -lt 300 ] || { cat /tmp/out; exit 1; }
+        run: bash scripts/ci/dokploy-deploy.sh

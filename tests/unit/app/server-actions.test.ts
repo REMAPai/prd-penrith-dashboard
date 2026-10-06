@@ -368,12 +368,15 @@ describe("feedback actions", () => {
     expect(writes()).toHaveLength(0);
   });
 
-  it("votes with an increment", async () => {
+  it("votes once per user: dedupe insert plus a conditional increment", async () => {
     allow(makeCtx("viewer"));
     await vote(form({ id: 3 }));
-    const [sql, params] = callsMatching(/update feedback set votes/)[0];
-    expect(sql).toContain("votes + 1");
-    expect(params).toEqual([3]);
+    const [sql, params] = callsMatching(/feedback_votes/)[0];
+    expect(sql).toContain("insert into feedback_votes");
+    expect(sql).toContain("on conflict do nothing");
+    expect(sql).toContain("votes = votes + 1");
+    expect(sql).toContain("exists (select 1 from ins)");
+    expect(params).toEqual([3, "viewer@test.example"]);
     allow(null);
     query.mockClear();
     await vote(form({ id: 3 }));
@@ -398,7 +401,7 @@ describe("feedback actions", () => {
 describe("progress: toggleAsk", () => {
   let toggleAsk: Action;
   beforeEach(async () => {
-    routeDb([[/from progress_items order by id/, [{ id: 5, project: "Buyer Sequencing", kind: "ask", text: "Confirm rule", owner: "Thomas", due: "This week", status: "open" }]]]);
+    routeDb([[/from progress_items where company_id/, [{ id: 5, project: "Buyer Sequencing", kind: "ask", text: "Confirm rule", owner: "Thomas", due: "This week", status: "open" }]]]);
     ({ toggleAsk } = await actions(Progress as Page, {}, makeCtx("branch_admin")));
   });
 
@@ -406,6 +409,18 @@ describe("progress: toggleAsk", () => {
     allow(makeCtx("viewer"));
     await toggleAsk(form({ id: 5 }));
     allow(null);
+    await toggleAsk(form({ id: 5 }));
+    expect(writes()).toHaveLength(0);
+  });
+
+  it("scopes the update to the signed-in company and refuses users with no company", async () => {
+    allow(makeCtx("agent"));
+    await toggleAsk(form({ id: 5 }));
+    const [sql, params] = callsMatching(/update progress_items/)[0];
+    expect(sql).toContain("and company_id = $2");
+    expect(params).toEqual([5, "prd"]);
+    query.mockClear();
+    allow(makeCtx("agent", { branch: undefined as never }));
     await toggleAsk(form({ id: 5 }));
     expect(writes()).toHaveLength(0);
   });
@@ -432,12 +447,20 @@ describe("progress: toggleAsk", () => {
 
 describe("shared top-bar actions", () => {
   it("setLiveOnly stores 1 or 0 for 30 days and refreshes the layout", async () => {
+    allow(makeCtx("viewer"));
     await setLiveOnly(true);
     expect(jar.get("liveOnly")?.value).toBe("1");
     expect(jar.options("liveOnly")).toMatchObject({ path: "/", maxAge: 2592000, sameSite: "lax" });
     await setLiveOnly(false);
     expect(jar.get("liveOnly")?.value).toBe("0");
     expect(nextCacheMock.revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("setLiveOnly does nothing for a signed-out caller", async () => {
+    allow(null);
+    await setLiveOnly(true);
+    expect(jar.has("liveOnly")).toBe(false);
+    expect(nextCacheMock.revalidatePath).not.toHaveBeenCalled();
   });
 
   it("setScope stores only a branch the user may see", async () => {

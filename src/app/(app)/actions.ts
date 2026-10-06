@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCtx } from "@/lib/ctx";
 
 export async function setLiveOnly(on: boolean) {
+  if (!(await getCtx())) return;
   (await cookies()).set("liveOnly", on ? "1" : "0", { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax" });
   revalidatePath("/", "layout");
 }
