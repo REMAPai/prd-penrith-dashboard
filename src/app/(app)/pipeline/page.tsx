@@ -45,23 +45,22 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
   if (ctx === "denied") return <Denied />;
   const sp = await searchParams;
   const tab = sp.tab || "board";
-  const all = await query<Site>("select * from pipeline_sites where branch_id = $1 order by priority, id", [ctx.branch.id]);
+  const all = await query<Site>("select * from pipeline_sites where branch_id = $1 and is_sample = false order by priority, id", [ctx.branch.id]);
   const sites = ctx.liveOnly ? all.filter((s) => !s.is_sample) : all;
   const open = sp.site ? all.find((s) => String(s.id) === sp.site) : undefined;
   const events = open ? await query<{ at: string; actor_email: string; kind: string; detail: string }>("select at, actor_email, kind, detail from pipeline_events where site_id = $1 order by at desc limit 20", [open.id]) : [];
   const edit = canEditPipeline(ctx.session.role);
-  const hasSample = all.some((s) => s.is_sample);
   const real = all.filter((s) => !s.is_sample);
 
   return (
     <>
-      <PageHeader title="Development Pipeline" status="prototype" sub="From detected site to sold. The six real DAs from the tracker are live; the rest are labelled sample rows." />
-      {hasSample && !ctx.liveOnly && <Notice>Rows marked Sample are invented to show the full pipeline. The six real DAs have zoning still to be confirmed before anyone acts on them.</Notice>}
+      <PageHeader title="Development Pipeline" status="prototype" sub="From detected site to sold. Real DAs from the tracker." />
+      {real.some((s) => !s.zoning_confirmed) && <Notice>Zoning still has to be confirmed on the NSW Planning Portal before anyone acts on a site.</Notice>}
       <div className="grid-kpi">
         <Kpi label="Real DAs tracked" value={real.length} />
         <Kpi label="Zoning still to confirm" value={real.filter((s) => !s.zoning_confirmed).length} />
         <Kpi label="Refused, under review" value={real.filter((s) => s.da_status === "Refused").length} />
-        <Kpi label="Sites in pipeline (incl. sample)" value={sites.length} status="sample" />
+        <Kpi label="Sites in pipeline" value={sites.length} />
       </div>
       <Tabs base="/pipeline" current={tab} tabs={[["board", "Board"], ["table", "Table"], ["snapshot", "Weekly snapshot"]]} />
 

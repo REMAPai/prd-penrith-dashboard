@@ -2,7 +2,6 @@ import { nowMs } from "@/lib/time";
 import { access } from "@/lib/ctx";
 import { query } from "@/lib/db";
 import { getConversations } from "@/lib/data/conversations";
-import { sampleFinance } from "@/lib/data/sample";
 import { Bars, Card, Cols, Denied, Kpi, PageHeader } from "@/components/ui";
 import { STAGES } from "@/lib/stages";
 
@@ -14,7 +13,7 @@ export default async function Exec() {
   const st = convos.status;
   const rows = convos.data;
   const wk = rows.filter((c) => nowMs() - new Date(c.startedAt).getTime() < 7 * 86400000);
-  const sites = await query<{ stage: number; is_sample: boolean }>("select stage, is_sample from pipeline_sites where branch_id = $1", [ctx.branch.id]);
+  const sites = await query<{ stage: number; is_sample: boolean }>("select stage, is_sample from pipeline_sites where branch_id = $1 and is_sample = false", [ctx.branch.id]);
   const realSites = sites.filter((s) => !s.is_sample);
 
   const bySuburb: Record<string, number> = {};
@@ -28,11 +27,10 @@ export default async function Exec() {
     return { label: `W${i + 1}`, value: rows.filter((c) => { const t = new Date(c.startedAt).getTime(); return t >= from && t < from + 7 * 86400000; }).length };
   });
   const funnel = STAGES.map((label, i) => ({ label, value: sites.filter((s) => s.stage === i).length }));
-  const fin = sampleFinance(ctx.branch.id);
 
   return (
     <>
-      <PageHeader title="Executive Overview" status="prototype" sub="Every number carries its data status. Money figures stay sample until a finance feed is connected." />
+      <PageHeader title="Executive Overview" status="prototype" sub="Every number carries its data status. Money figures appear once a finance feed is connected." />
       <div className="grid-kpi">
         <Kpi label="Enquiries (7 days)" value={wk.length} status={st} />
         <Kpi label="Ready for an agent" value={rows.filter((c) => c.readyForAgent).length} status={st} />
@@ -44,11 +42,7 @@ export default async function Exec() {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
         <Card status={st} title="Enquiries, last 8 weeks" basis="380px" source={convos.source}><Cols items={weeks} /></Card>
         <Card status={st} title="Top suburbs by demand" basis="380px" source={convos.source}><Bars items={top} /></Card>
-        <Card status="sample" title="Pipeline by stage" sub="Includes sample rows" basis="380px"><Bars items={funnel} /></Card>
-        <Card status="sample" title="Revenue, expenses and forecast" sub="$ thousands. Waiting on a finance feed." basis="100%">
-          <table className="t"><thead><tr><th>Month</th><th>Revenue</th><th>Expenses</th><th>Net</th></tr></thead>
-            <tbody>{fin.map((f) => <tr key={f.month}><td>{f.month}</td><td>{f.revenue}</td><td>{f.expenses}</td><td style={{ fontWeight: 600 }}>{f.revenue - f.expenses}</td></tr>)}</tbody></table>
-        </Card>
+        <Card title="Pipeline by stage" sub="Real DAs from the tracker" basis="380px" source="Postgres pipeline table"><Bars items={funnel} /></Card>
       </div>
     </>
   );
