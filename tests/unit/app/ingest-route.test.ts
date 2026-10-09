@@ -141,7 +141,7 @@ describe("ingest route: playbook (weekly feed)", () => {
     expect(poolClient.query).not.toHaveBeenCalled();
   });
 
-  it("stores the week, upserts each application and links only flagged rows to the week, in one transaction", async () => {
+  it("stores the week, upserts each application and links every row to the week, in one transaction", async () => {
     configured();
     poolClient.query.mockImplementation(async (sql: string) => (/insert into pipeline_sites/.test(sql) ? { rows: [{ id: 7 }], rowCount: 1 } : { rows: [], rowCount: 0 }));
     const r = await post("playbook", body({ rows: [row, quiet] }));
@@ -151,7 +151,7 @@ describe("ingest route: playbook (weekly feed)", () => {
     expect(sql.at(-1)).toBe("commit");
     expect(sql.filter((s) => /^insert into playbook_weeks/.test(s))).toHaveLength(1);
     expect(sql.filter((s) => /^insert into pipeline_sites/.test(s))).toHaveLength(2);
-    expect(sql.filter((s) => /^insert into playbook_week_items/.test(s))).toHaveLength(1);
+    expect(sql.filter((s) => /^insert into playbook_week_items/.test(s))).toHaveLength(2);
     const weeks = poolClient.query.mock.calls.find((c) => /insert into playbook_weeks/.test(String(c[0])))!;
     expect(weeks[1]).toEqual(["pen", "2026-10-05", "2026-10-05T07:00:00+11:00", 2]);
     const item = poolClient.query.mock.calls.find((c) => /insert into playbook_week_items/.test(String(c[0])))!;

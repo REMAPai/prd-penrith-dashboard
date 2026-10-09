@@ -91,7 +91,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); backgrou
 .chip { cursor: pointer; padding: 5px 12px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); background: #fff; display: inline-block; }
 .chip.on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-ink); font-weight: 500; }
 
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); font-size: 13px; overflow: auto; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); font-size: 13px; overflow-x: auto; overflow-y: hidden; flex: none; min-height: 42px; margin-bottom: 4px; }
 .tabs a { padding: 8px 14px; white-space: nowrap; border-bottom: 2px solid transparent; color: var(--text-soft); }
 .tabs a.on { border-color: var(--brand); color: var(--brand-ink); font-weight: 500; }
 

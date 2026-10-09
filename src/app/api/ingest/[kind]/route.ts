@@ -111,14 +111,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ kind: stri
           [branch, r.council, r.applicationNo, r.type, r.address, r.suburb, r.zoning || "TBC", r.zoning !== "", r.zoning ? r.zoningSource : null, r.zoneCode || null, r.zoneName || null,
             r.status || null, r.applicant || null, r.sourcePortal || null, r.acnAbn || null, r.contactFound || null, r.actionTaken || null, r.notes || null, r.dateIdentified],
         );
-        if (r.flag) {
-          flagged += 1;
-          await client.query(
-            `insert into playbook_week_items (branch_id, week_start, site_id, flag, status_at_week) values ($1,$2,$3,$4,$5)
-             on conflict (branch_id, week_start, site_id) do update set flag = excluded.flag, status_at_week = excluded.status_at_week`,
-            [branch, weekStart, site.rows[0].id, r.flag, r.status],
-          );
-        }
+        // Every row the run read belongs to that week; the flag marks the ones that were new or changed.
+        if (r.flag) flagged += 1;
+        await client.query(
+          `insert into playbook_week_items (branch_id, week_start, site_id, flag, status_at_week) values ($1,$2,$3,$4,$5)
+           on conflict (branch_id, week_start, site_id) do update set flag = excluded.flag, status_at_week = excluded.status_at_week`,
+          [branch, weekStart, site.rows[0].id, r.flag, r.status],
+        );
       }
 
       for (const c of companies) {
