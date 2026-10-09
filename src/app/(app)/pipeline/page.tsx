@@ -82,7 +82,7 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
      from playbook_weeks w where w.branch_id = $1 order by w.week_start desc limit 52`,
     [ctx.branch.id],
   );
-  const week = sp.week === "all" ? "all" : weeks.find((w) => w.week_start === sp.week)?.week_start ?? weeks[0]?.week_start ?? "all";
+  const week = sp.week === "all" ? "all" : weeks.find((w) => w.week_start === sp.week)?.week_start ?? (weeks[0]?.week_start ?? "all");
   const current = weeks.find((w) => w.week_start === week);
 
   const all = await query<Site>(
@@ -151,7 +151,7 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
       {sites.some((s) => !s.zoning_confirmed) && <Notice>Some rows have no zone in the sheet, so zoning still has to be confirmed before anyone acts on them.</Notice>}
 
       <div className="grid-kpi">
-        <Kpi label={week === "all" ? "Applications tracked" : "Flagged this week"} value={sites.length} />
+        <Kpi label={week === "all" ? "Applications tracked" : "Flagged this week"} value={week === "all" ? sites.length : sites.filter((s) => s.flag).length} />
         <Kpi label="DAs" value={sites.filter((s) => s.da_type === "DA").length} />
         <Kpi label="CDCs" value={sites.filter((s) => s.da_type === "CDC").length} />
         <Kpi label="Approved" value={sites.filter((s) => s.da_status === "Approved").length} />
@@ -169,7 +169,7 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
       {tab !== "companies" && tab !== "gaps" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div className="soft" style={{ fontSize: 12 }}>
-            {current ? `Run received ${fmtDate(current.run_at)}. ${current.rows_total} rows in the sheet for ${ctx.branch.name} that week, ${current.items} flagged as new or changed.` : week === "all" ? "Every application the weekly runs have recorded, whichever week it first appeared." : ""}
+            {current ? `Run received ${fmtDate(current.run_at)}. ${current.rows_total} rows in the sheet for ${ctx.branch.name} that week, ${weekItems.filter((s) => s.flag).length} flagged as new or changed.` : week === "all" ? "Every application the weekly runs have recorded, whichever week it first appeared." : ""}
           </div>
           {weekBar}
         </div>
