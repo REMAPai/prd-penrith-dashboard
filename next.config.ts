@@ -15,6 +15,8 @@ const csp = (isDev: boolean) =>
     "object-src 'none'",
   ].join("; ");
 
+
+  
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
