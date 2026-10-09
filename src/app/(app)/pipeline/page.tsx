@@ -74,7 +74,7 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
   const sp = await searchParams;
-  const tab = sp.tab || "board";
+  const tab = sp.tab || "status";
 
   const weeks = await query<WeekRow>(
     `select w.week_start::text as week_start, w.run_at, w.rows_total,
@@ -137,12 +137,11 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
       <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}><b>{s.da_number}</b><Badge>{s.da_type}</Badge></div>
       <div>{s.address}</div>
       <div className="soft">{s.suburb}</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {s.da_status ? <Badge tone={statusTone(s.da_status)}>{s.da_status}</Badge> : <Badge>No status</Badge>}
-        <Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "Zoning TBC"}</Badge>
-      </div>
+      <Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "Zoning TBC"}</Badge>
     </Link>
   );
+  // Columns come from the status the sheet holds. Nothing is added that the sheet does not have.
+  const statusCols = [...new Set(["In Assessment", "Approved", "Refused", ...sites.map((s) => s.da_status).filter((x): x is string => !!x)])];
 
   return (
     <>
@@ -159,8 +158,8 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
       </div>
 
       <div className="tabs">
-        {tabLink("board", "Board")}
-        {tabLink("table", "Table")}
+        {tabLink("status", "By status")}
+        {tabLink("table", "DA & CDC Tracker")}
         {tabLink("companies", "Companies")}
         {tabLink("snapshot", "Weekly snapshot")}
         {tabLink("gaps", "Data not in the sheet")}
@@ -175,11 +174,11 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
         </div>
       )}
 
-      {tab === "board" && (
-        <Card title="Board" sub={week === "all" ? "All weeks. Open a card to move it or see every field." : `Week of ${weekLabel(week)}. Open a card to move it or see every field.`}>
+      {tab === "status" && (
+        <Card title="By status" sub={week === "all" ? "All weeks. Open a card to see every field." : `Week of ${weekLabel(week)}. Open a card to see every field.`} source="Developer_playbook sheet, DA & CDC Tracker tab">
           <div className="kanban">
-            {STAGES.map((name, i) => {
-              const col = sites.filter((s) => s.stage === i);
+            {statusCols.map((name) => {
+              const col = sites.filter((s) => s.da_status === name);
               return (
                 <div className="col" key={name}>
                   <div style={{ fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", padding: "2px 4px" }}><span>{name}</span><span className="soft" style={{ fontWeight: 400 }}>{col.length}</span></div>
@@ -187,19 +186,35 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
                 </div>
               );
             })}
+            {sites.some((s) => !s.da_status) && (
+              <div className="col">
+                <div style={{ fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", padding: "2px 4px" }}><span>No status in the sheet</span><span className="soft" style={{ fontWeight: 400 }}>{sites.filter((s) => !s.da_status).length}</span></div>
+                {sites.filter((s) => !s.da_status).map(card)}
+              </div>
+            )}
+            <div className="col">
+              <div style={{ fontSize: 12, fontWeight: 600, padding: "2px 4px" }}>Not covered: paid access needed</div>
+              <div className="kcard" style={{ cursor: "default" }}>
+                <div>ACN/ABN</div>
+                <div>Director names and roles</div>
+                <div>Phone and email of those people</div>
+                <div>Developer and architect contacts</div>
+                <div className="soft">No free source holds these. They fill in once paid access is in place.</div>
+              </div>
+            </div>
           </div>
         </Card>
       )}
 
       {tab === "table" && (
-        <Card title="Applications" sub={week === "all" ? "All weeks" : `Week of ${weekLabel(week)}`} source="Developer_playbook sheet, DA & CDC Tracker tab">
+        <Card title="DA & CDC Tracker" sub={week === "all" ? "All weeks" : `Week of ${weekLabel(week)}`} source="Developer_playbook sheet, DA & CDC Tracker tab">
           <div style={{ overflow: "auto" }}>
             <table className="t compact">
               <thead>
-                <tr><th>Application</th><th>Property</th><th>Status</th><th>Zoning</th><th>Applicant</th><th>ACN / ABN</th><th>Contact · action</th><th>Stage</th>{week !== "all" && <th>This week</th>}<th>First seen</th></tr>
+                <tr><th>Application</th><th>Property</th><th>Status</th><th>Zoning</th><th>Applicant</th><th>ACN/ABN (if known)</th><th>Contact Found?</th><th>Action Taken</th>{week !== "all" && <th>This week</th>}<th>First seen</th></tr>
               </thead>
               <tbody>
-                {sites.length === 0 && <tr><td colSpan={10} className="soft">No applications for this selection.</td></tr>}
+                {sites.length === 0 && <tr><td colSpan={11} className="soft">No applications for this selection.</td></tr>}
                 {sites.map((s) => (
                   <tr key={s.id} title={s.notes ?? ""}>
                     <td className="nw"><Link href={href("table", { site: String(s.id) })}><b>{s.da_number}</b></Link> <Badge>{s.da_type}</Badge></td>
@@ -208,8 +223,8 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
                     <td className="nw">{s.zoning_confirmed ? <span title={s.zoning_source ?? ""}>{s.zoning}{s.zone_code && s.zone_code !== s.zoning ? <span className="soft"> · {s.zone_code}</span> : ""}</span> : <Missing reason={why("zoning", s)} />}</td>
                     <td className="clip">{s.applicant ?? <Missing reason={why("applicant", s)} />}</td>
                     <td className="nw">{s.abn ?? <Missing reason={why("abn", s)} />}</td>
-                    <td className="nw">{s.contact_found ?? <Missing reason={why("contact", s)} />}<div className="soft">{s.action_taken ?? <Missing reason={why("action", s)} />}</div></td>
-                    <td className="nw">{STAGES[s.stage]}</td>
+                    <td className="nw">{s.contact_found ?? <Missing reason={why("contact", s)} />}</td>
+                    <td className="nw">{s.action_taken ?? <Missing reason={why("action", s)} />}</td>
                     {week !== "all" && <td className="nw soft">{s.flag}</td>}
                     <td className="nw soft">{s.identified_on?.toString().slice(0, 10)}</td>
                   </tr>
@@ -258,7 +273,7 @@ export default async function Playbook({ searchParams }: { searchParams: Promise
 
       {open && (
         <Drawer title={open.address} sub={`${open.suburb} · ${open.lga ?? ""}`} closeHref={closeHref}
-          badges={<><Badge tone="red">{STAGES[open.stage]}</Badge>{open.da_status && <Badge tone={statusTone(open.da_status)}>{open.da_status}</Badge>}<Badge tone={open.zoning_confirmed ? "done" : "prototype"}>{open.zoning_confirmed ? open.zoning : "Zoning TBC: confirm before acting"}</Badge></>}>
+          badges={<>{open.da_status && <Badge tone={statusTone(open.da_status)}>{open.da_status}</Badge>}<Badge tone={open.zoning_confirmed ? "done" : "prototype"}>{open.zoning_confirmed ? open.zoning : "Zoning TBC: confirm before acting"}</Badge></>}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "10px 16px" }}>
             {([
               ["Application", [open.da_type, open.da_number].filter(Boolean).join(" · ")],

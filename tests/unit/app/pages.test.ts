@@ -122,7 +122,7 @@ describe("Development Playbook page", () => {
 
   it("shows a week bar with each week's date range and defaults to the latest run", async () => {
     as("branch_admin");
-    const html = await renderPage(Pipeline, sp({ tab: "board" }));
+    const html = await renderPage(Pipeline, sp({ tab: "table" }));
     expect(html).toContain("5 Oct to 11 Oct 2026");
     expect(html).toContain("28 Sep to 4 Oct 2026");
     expect(html).toContain("All weeks");
@@ -131,9 +131,9 @@ describe("Development Playbook page", () => {
 
   it("opens the week in the URL, ignoring one that has no run", async () => {
     as("branch_admin");
-    await renderPage(Pipeline, sp({ tab: "board", week: "2026-09-28" }));
+    await renderPage(Pipeline, sp({ tab: "table", week: "2026-09-28" }));
     expect(callsMatching(/from playbook_week_items i join pipeline_sites/).at(-1)![1]).toEqual(["pen", "2026-09-28"]);
-    await renderPage(Pipeline, sp({ tab: "board", week: "2020-01-06" }));
+    await renderPage(Pipeline, sp({ tab: "table", week: "2020-01-06" }));
     expect(callsMatching(/from playbook_week_items i join pipeline_sites/).at(-1)![1]).toEqual(["pen", "2026-10-05"]);
   });
 
