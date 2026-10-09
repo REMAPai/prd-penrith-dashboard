@@ -35,7 +35,7 @@ test.describe("role-based sidebar and access (read only)", () => {
     test("sees operational pages but no admin, finance or map pages", async ({ page }) => {
       await page.goto("/progress");
       const l = await links(page);
-      expect(l).toEqual(expect.arrayContaining(["Buyer Sequencing", "Listings and Demand", "Development Pipeline", "Activity and Tasks", "Feedback"]));
+      expect(l).toEqual(expect.arrayContaining(["Buyer Sequencing", "Listings and Demand", "Development Playbook", "Activity and Tasks", "Feedback"]));
       for (const hidden of ["Users and Roles", "Audit Log", "Data Sources", "Finance", "Map", "Companies and Branches"]) expect(l).not.toContain(hidden);
     });
 

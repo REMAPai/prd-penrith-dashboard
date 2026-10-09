@@ -79,7 +79,7 @@ Sidebar groups:
 
 **Departments**
 - Sales: Buyer Sequencing (Live), Listings and Demand
-- Site Acquisition: Development Pipeline (Live/Prototype), Map
+- Site Acquisition: Development Playbook (Live/Prototype), Map
 - Project Marketing: Projects and Stock, Meta Lead Funnel
 - Property Management (Planned)
 - Commercial (Planned)
@@ -120,7 +120,10 @@ Tabs: Conversations, Funnel, Handovers, Quality, Settings.
 ### 4.4 Listings and Demand
 Active listings from Vault with enquiries per listing (7/30 days), response time, Hot count, days on market, price band, open home next. Heat colouring. Source: Vault sale-life records + conversation log. Live when Vault key is connected; Sample until then.
 
-### 4.5 Development Pipeline (site detection to sale)
+### 4.5 Development Playbook (site detection to sale; was Development Pipeline)
+
+Update 2026-10-09: the page mirrors the Developer_playbook sheet week by week (week bar above the board, a compact table, a Companies tab and a Data-not-in-the-sheet tab). Zoning shown is the value in the sheet, with its source. The rest of this section is the original design.
+
 Kanban plus table plus timeline views. Stages (configurable):
 1. Detected (DA/CDC/listing signal)
 2. Qualified (zoning confirmed plus second signal)
@@ -197,7 +200,7 @@ Table of sources: Vault, ClickSend, n8n log, Meta, Google Sheets (projects, Meta
 | `exec` | other directors | everything | view, comment |
 | `sales_agent` | agents | Buyer Sequencing (own handovers and all conversations read), Listings, Pipeline read | mark contacted, feedback |
 | `marketing` | Thomas, Thea | Project Marketing, Meta funnel, Pipeline, Buyer Sequencing | edit pipeline, tasks, promote leads |
-| `acquisitions` | Darren, Thomas | Development Pipeline, Map | move stages, confirm zoning, edit criteria |
+| `acquisitions` | Darren, Thomas | Development Playbook, Map | move stages, confirm zoning, edit criteria |
 | `ops` | Lily | Data Sources, Users (PRD), Alerts | manage access, acknowledge alerts |
 | `remap_admin` | Hamza, Irfan, Suffyan | everything incl. technical logs | configure, connect sources, user admin |
 | `viewer` | read-only guests | Delivery Progress, Overview | none |

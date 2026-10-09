@@ -21,7 +21,7 @@ export const PAGES: PageDef[] = [
   { key: "exec", title: "Executive Overview", group: "Overview", status: "prototype", roles: "all", href: "/exec" },
   { key: "buyer", title: "Buyer Sequencing", group: "Departments", status: "live", roles: "pcbma", href: "/buyer" },
   { key: "listings", title: "Listings and Demand", group: "Departments", status: "live", roles: "pcbma", href: "/listings" },
-  { key: "pipeline", title: "Development Pipeline", group: "Departments", status: "prototype", roles: "pcbma", href: "/pipeline" },
+  { key: "pipeline", title: "Development Playbook", group: "Departments", status: "prototype", roles: "pcbma", href: "/pipeline" },
   { key: "map", title: "Map", group: "Departments", status: "prototype", roles: "pcbm", href: "/map" },
   { key: "projects", title: "Projects and Stock", group: "Departments", status: "prototype", roles: "pcbm", href: "/projects" },
   { key: "meta", title: "Meta Lead Funnel", group: "Departments", status: "waiting", roles: "pcbm", href: "/meta" },

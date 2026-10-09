@@ -51,7 +51,7 @@ Plain-language checks, done on https://prd.remap.ai in a morning AEST slot (Darr
 - [ ] Buyer Sequencing shows real conversations; reply order feels right (answer, inspection, then buyer details)
 - [ ] Phone and email are masked as expected
 - [ ] Listings match what I see in Vault; no private vendor details appear anywhere
-- [ ] Development Pipeline: I can move a site and its history is recorded; unconfirmed zoning shows "Confirm before acting"
+- [ ] Development Playbook: I can move a site and its history is recorded; unconfirmed zoning shows "Confirm before acting"
 - [ ] Map shows sites and listings in the right places
 - [ ] I can leave feedback from any page and see it listed
 - [ ] Users page: I can add and deactivate a user in my own company only

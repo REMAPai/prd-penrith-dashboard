@@ -2,28 +2,43 @@ import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { access } from "@/lib/ctx";
 import { query } from "@/lib/db";
-import { Badge, Card, Denied, Drawer, Kpi, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
+import { Badge, Card, Denied, Drawer, Kpi, Notice, PageHeader, fmtDate } from "@/components/ui";
 import { audit } from "@/lib/session";
-import { canEditPipeline } from "@/lib/roles";
+import { canEditPipeline, canRevealPii } from "@/lib/roles";
 import { STAGES, type Site } from "@/lib/stages";
+import { inSheetWeek, weekLabel } from "@/lib/playbook";
+import { mask } from "@/lib/data/conversations";
 
+type WeekRow = { week_start: string; run_at: string; rows_total: number; items: number };
+type Item = Site & { flag?: string | null };
+type Company = { name: string; linked_address: string; acn_abn: string; asic_done: string; directors: string; role: string; contact_details: string; source_used: string; notes: string };
 
-const TestBadge = () => <Badge tone="sample">Data under testing</Badge>;
+const NA = "Not available";
 
-type FieldState = "working" | "building" | "needs";
-const STATE: Record<FieldState, { tone: "done" | "prototype" | "waiting"; label: string }> = {
-  working: { tone: "done", label: "Working" },
-  building: { tone: "prototype", label: "Being built" },
-  needs: { tone: "waiting", label: "Needs your input" },
-};
-const FieldTag = ({ state }: { state: FieldState }) => <Badge tone={STATE[state].tone}>{STATE[state].label}</Badge>;
+/** Why a value is missing, from facts about this row. Nothing here is a guess about the value itself. */
+function why(field: "applicant" | "abn" | "zoning" | "contact" | "action", s: Site): string {
+  if (field === "applicant") {
+    if (s.da_type === "CDC") return "CDCs are not in the council tracker, so there is no applicant name.";
+    if (s.lga === "Blue Mountains") return "The Blue Mountains council tracker is not connected yet.";
+    return "This application was not in the Penrith council tracker's last 180 days.";
+  }
+  if (field === "abn") return "No ABN or ACN in the sheet yet. The ABN Lookup key is pending and the team has not entered one.";
+  if (field === "zoning") return "The sheet has no zone for this row.";
+  if (field === "contact") return "The sheet has no contact status for this row.";
+  return "The sheet has no action recorded for this row.";
+}
 
-const COLUMNS: [string, FieldState][] = [
-  ["Address", "working"], ["Suburb", "working"], ["Stage", "working"], ["Zoning", "working"], ["Lot", "building"], ["FSR / height", "building"],
-  ["DA / CDC", "working"], ["Applicant", "building"], ["Contact", "building"], ["Ownership signal", "needs"], ["Hold (yrs)", "needs"], ["Priority", "working"], ["Next step", "working"],
+const Missing = ({ reason }: { reason: string }) => <span className="soft" title={reason}>{NA}</span>;
+
+const NOT_IN_SHEET: [string, string][] = [
+  ["Priority", "The sheet has no priority column. Every row already met the workflow's starter priority rule (cost of $1M or more, 3 or more dwellings, 2 or more lots, or key words). Darren has not confirmed that rule."],
+  ["Lot size, floor space ratio, height", "Not in the tracker. They exist per lot in the separate Site Opportunity List sheet, which is not linked to an application."],
+  ["Ownership signal, hold period", "Not recorded anywhere yet. The hold-period rule is undecided."],
+  ["Assignee", "The sheet has no assignee column."],
+  ["Map position", "The sheet has no coordinates, so applications cannot be placed on the Map."],
 ];
 
-const days = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
+const statusTone = (s: string | null): "done" | "red" | "prototype" | "grey" => (s === "Approved" ? "done" : s === "Refused" ? "red" : s === "In Assessment" || s === "Lodged" ? "prototype" : "grey");
 
 async function moveStage(formData: FormData) {
   "use server";
@@ -54,73 +69,121 @@ async function confirmZoning(formData: FormData) {
   revalidatePath("/pipeline");
 }
 
-export default async function Pipeline({ searchParams }: { searchParams: Promise<{ tab?: string; site?: string }> }) {
+export default async function Playbook({ searchParams }: { searchParams: Promise<{ tab?: string; site?: string; week?: string }> }) {
   const ctx = await access("pipeline");
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
   const sp = await searchParams;
   const tab = sp.tab || "board";
-  const rows = await query<Site>("select * from pipeline_sites where branch_id = $1 order by priority, id", [ctx.branch.id]);
-  const all = rows.filter((s) => s.site_kind !== "listing");
-  const listings = rows.filter((s) => s.site_kind === "listing");
-  const sites = ctx.liveOnly ? all.filter((s) => !s.is_sample) : all;
-  const open = sp.site ? rows.find((s) => String(s.id) === sp.site) : undefined;
+
+  const weeks = await query<WeekRow>(
+    `select w.week_start::text as week_start, w.run_at, w.rows_total,
+            (select count(*)::int from playbook_week_items i where i.branch_id = w.branch_id and i.week_start = w.week_start) as items
+     from playbook_weeks w where w.branch_id = $1 order by w.week_start desc limit 52`,
+    [ctx.branch.id],
+  );
+  const week = sp.week === "all" ? "all" : weeks.find((w) => w.week_start === sp.week)?.week_start ?? weeks[0]?.week_start ?? "all";
+  const current = weeks.find((w) => w.week_start === week);
+
+  const all = await query<Site>(
+    "select s.*, s.identified_on::text as identified_on from pipeline_sites s where s.branch_id = $1 and s.is_sample = false and s.site_kind = 'da' order by s.id",
+    [ctx.branch.id],
+  );
+  const weekItems = week === "all" ? [] : await query<Item>(
+    `select s.*, s.identified_on::text as identified_on, i.flag from playbook_week_items i join pipeline_sites s on s.id = i.site_id
+     where i.branch_id = $1 and i.week_start = $2 and s.is_sample = false order by s.id`,
+    [ctx.branch.id, week],
+  );
+  const sites: Item[] = week === "all" ? all : weekItems;
+  const companies = tab === "companies"
+    ? await query<Company>("select name, linked_address, acn_abn, asic_done, directors, role, contact_details, source_used, notes from playbook_companies where company_id = $1 order by name", [ctx.branch.company_id])
+    : [];
+
+  const open = sp.site ? all.find((s) => String(s.id) === sp.site) : undefined;
   const events = open ? await query<{ at: string; actor_email: string; kind: string; detail: string }>("select at, actor_email, kind, detail from pipeline_events where site_id = $1 order by at desc limit 20", [open.id]) : [];
   const edit = canEditPipeline(ctx.session.role);
-  const real = all.filter((s) => !s.is_sample);
-  const testing = all.filter((s) => s.is_sample);
-  const weekly = (rows: Site[]) => [
-    ["New planning items identified this week", rows.filter((s) => days(s.identified_on) < 7).length],
-    ["Approved", rows.filter((s) => s.da_status === "Approved").length],
-    ["Refused (under review)", rows.filter((s) => s.da_status === "Refused").length],
-    ["Owner or director contact still needed", rows.filter((s) => s.stage < 2).length],
-    ["Approaches made (total)", rows.filter((s) => s.stage >= 3).length],
-    ["Zoning still to confirm", rows.filter((s) => !s.zoning_confirmed).length],
+  const reveal = canRevealPii(ctx.session.role);
+
+  const href = (t: string, extra: Record<string, string> = {}) => `/pipeline?${new URLSearchParams({ tab: t, week, ...extra }).toString()}`;
+  const closeHref = href(tab);
+
+  // The Weekly Snapshot tab in the sheet counts rows by Date Identified inside the week. Repeat it so both agree.
+  const inWeek = (s: Site) => week === "all" || inSheetWeek(s.identified_on, week);
+  const snapshot: [string, React.ReactNode][] = [
+    ["New DAs identified", all.filter((s) => s.da_type === "DA" && inWeek(s)).length],
+    ["New CDCs identified", all.filter((s) => s.da_type === "CDC" && inWeek(s)).length],
+    ["Approved", all.filter((s) => s.da_status === "Approved" && inWeek(s)).length],
+    ["Refused", all.filter((s) => s.da_status === "Refused" && inWeek(s)).length],
+    ["Owner or director contact still needed", all.filter((s) => s.contact_found === "Not yet found").length],
+    ["Approaches made", all.filter((s) => s.action_taken === "Contacted" && inWeek(s)).length],
+    ["Farm suburbs with active leads", <Missing key="farm" reason="The Zoning Farm List is filled by hand by the team and is not part of this feed." />],
   ];
+
+  const weekBar = (
+    <div className="chips" aria-label="Week">
+      {weeks.map((w) => (
+        <Link key={w.week_start} href={`/pipeline?${new URLSearchParams({ tab, week: w.week_start }).toString()}`} className={`chip ${week === w.week_start ? "on" : ""}`}>
+          {weekLabel(w.week_start)} <span className="soft">{w.items}</span>
+        </Link>
+      ))}
+      <Link href={`/pipeline?${new URLSearchParams({ tab, week: "all" }).toString()}`} className={`chip ${week === "all" ? "on" : ""}`}>All weeks <span className="soft">{all.length}</span></Link>
+    </div>
+  );
+
+  const tabLink = (k: string, label: string) => <Link key={k} href={href(k)} className={tab === k ? "on" : ""}>{label}</Link>;
+
+  const card = (s: Item) => (
+    <Link key={s.id} href={href(tab, { site: String(s.id) })} className="kcard" style={{ color: "inherit" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}><b>{s.da_number}</b><Badge>{s.da_type}</Badge></div>
+      <div>{s.address}</div>
+      <div className="soft">{s.suburb}</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {s.da_status ? <Badge tone={statusTone(s.da_status)}>{s.da_status}</Badge> : <Badge>No status</Badge>}
+        <Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "Zoning TBC"}</Badge>
+      </div>
+    </Link>
+  );
 
   return (
     <>
-      <PageHeader title="Development Pipeline" status="prototype" sub="From detected site to sold. Real DAs from the tracker." />
-      {real.some((s) => !s.zoning_confirmed) && <Notice>Zoning still has to be confirmed on the NSW Planning Portal before anyone acts on a site.</Notice>}
-      <div className="notice" style={{ display: "grid", gap: 10 }}>
-        <div style={{ fontWeight: 600 }}>Under active development: this page is being built week by week.</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, fontSize: 13, lineHeight: 1.5 }}>
-          <div><FieldTag state="working" /><div>{real.length} real council planning items and {listings.length} open-market land listings from the 7 October sourcing run are loaded. You can move sites through the stages and confirm zoning yourself.</div></div>
-          <div><FieldTag state="building" /><div>The weekly automatic feed from the NSW Planning Portal and the owner trace. Target: first Monday report in about two weeks.</div></div>
-          <div><FieldTag state="needs" /><div>The must-have field list, the hold-period rule, who runs the weekly playbook, and RP Data and Cordell access and cost.</div></div>
-        </div>
-        <div className="soft" style={{ fontSize: 12 }}>Every column below carries a marker. Rows labelled Data under testing are invented examples of what the finished page will show. <Link href="/progress">See the full progress and what we need from you</Link></div>
-      </div>
-      {!ctx.liveOnly && testing.length > 0 && <Notice>Rows marked Data under testing are invented examples that show the fields and stages we are building towards. They are not council or PRD data. Switch to Live only to hide them.</Notice>}
+      <PageHeader title="Development Playbook" status="prototype" sub={`${ctx.branch.name}: applications found by the weekly run, as written in the Developer_playbook sheet.`} />
+      {weeks.length === 0 && <Notice>No weekly run has reached the dashboard yet. When the Monday run finishes it posts here and its week appears below, with the same rows the sheet shows.</Notice>}
+      {sites.some((s) => !s.zoning_confirmed) && <Notice>Some rows have no zone in the sheet, so zoning still has to be confirmed before anyone acts on them.</Notice>}
+
       <div className="grid-kpi">
-        <Kpi label="Real planning items" value={real.length} />
-        <Kpi label="Open-market land listings" value={listings.length} />
-        <Kpi label="Zoning still to confirm" value={real.filter((s) => !s.zoning_confirmed).length} />
-        <Kpi label="Refused, under review" value={real.filter((s) => s.da_status === "Refused").length} />
-        <Kpi label={sites.some((s) => s.is_sample) ? "Sites in pipeline (incl. data under testing)" : "Sites in pipeline"} value={sites.length} />
+        <Kpi label={week === "all" ? "Applications tracked" : "Flagged this week"} value={sites.length} />
+        <Kpi label="DAs" value={sites.filter((s) => s.da_type === "DA").length} />
+        <Kpi label="CDCs" value={sites.filter((s) => s.da_type === "CDC").length} />
+        <Kpi label="Approved" value={sites.filter((s) => s.da_status === "Approved").length} />
+        <Kpi label="Refused" value={sites.filter((s) => s.da_status === "Refused").length} />
       </div>
-      <Tabs base="/pipeline" current={tab} tabs={[["board", "Board"], ["table", "Table"], ["listings", "Open-market land"], ["snapshot", "Weekly snapshot"]]} />
+
+      <div className="tabs">
+        {tabLink("board", "Board")}
+        {tabLink("table", "Table")}
+        {tabLink("companies", "Companies")}
+        {tabLink("snapshot", "Weekly snapshot")}
+        {tabLink("gaps", "Data not in the sheet")}
+      </div>
+
+      {tab !== "companies" && tab !== "gaps" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div className="soft" style={{ fontSize: 12 }}>
+            {current ? `Run received ${fmtDate(current.run_at)}. ${current.rows_total} rows in the sheet for ${ctx.branch.name} that week, ${current.items} flagged as new or changed.` : week === "all" ? "Every application the weekly runs have recorded, whichever week it first appeared." : ""}
+          </div>
+          {weekBar}
+        </div>
+      )}
 
       {tab === "board" && (
-        <Card title="Pipeline board" sub="Open a card to move it or confirm zoning.">
+        <Card title="Board" sub={week === "all" ? "All weeks. Open a card to move it or see every field." : `Week of ${weekLabel(week)}. Open a card to move it or see every field.`}>
           <div className="kanban">
             {STAGES.map((name, i) => {
               const col = sites.filter((s) => s.stage === i);
               return (
                 <div className="col" key={name}>
                   <div style={{ fontSize: 12, fontWeight: 600, display: "flex", justifyContent: "space-between", padding: "2px 4px" }}><span>{name}</span><span className="soft" style={{ fontWeight: 400 }}>{col.length}</span></div>
-                  {col.map((s) => (
-                    <Link key={s.id} href={`/pipeline?tab=board&site=${s.id}`} className="kcard" style={{ color: "inherit" }}>
-                      <div style={{ fontWeight: 500 }}>{s.address}</div>
-                      <div className="soft">{s.suburb}{s.lot_size ? ` · ${s.lot_size}` : ""}</div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "Zoning TBC"}</Badge>
-                        <Badge>{s.priority}</Badge>
-                        {s.is_sample && <TestBadge />}
-                      </div>
-                      <div className="soft" style={{ fontSize: 11 }}>{days(s.stage_changed_at)}d in stage</div>
-                    </Link>
-                  ))}
+                  {col.map(card)}
                 </div>
               );
             })}
@@ -129,27 +192,26 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
       )}
 
       {tab === "table" && (
-        <Card title="All sites">
+        <Card title="Applications" sub={week === "all" ? "All weeks" : `Week of ${weekLabel(week)}`} source="Developer_playbook sheet, DA & CDC Tracker tab">
           <div style={{ overflow: "auto" }}>
-            <table className="t" style={{ minWidth: 1280 }}>
+            <table className="t compact">
               <thead>
-                <tr>{COLUMNS.map(([name]) => <th key={name}>{name}</th>)}</tr>
-                <tr>{COLUMNS.map(([name, state]) => <th key={name} style={{ fontWeight: 400 }}><FieldTag state={state} /></th>)}</tr>
+                <tr><th>Application</th><th>Property</th><th>Status</th><th>Zoning</th><th>Applicant</th><th>ACN / ABN</th><th>Contact · action</th><th>Stage</th>{week !== "all" && <th>This week</th>}<th>First seen</th></tr>
               </thead>
               <tbody>
+                {sites.length === 0 && <tr><td colSpan={10} className="soft">No applications for this selection.</td></tr>}
                 {sites.map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ fontWeight: 500 }}><Link href={`/pipeline?tab=table&site=${s.id}`}>{s.address}</Link> {s.is_sample && <TestBadge />}</td>
-                    <td>{s.suburb}</td><td>{STAGES[s.stage]}</td>
-                    <td><Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "TBC"}</Badge></td>
-                    <td className="soft">{s.lot_size ?? "To confirm"}</td>
-                    <td className="soft">{s.fsr || s.height_m ? `${s.fsr ?? "?"} / ${s.height_m ?? "?"}` : "To confirm"}</td>
-                    <td className="soft">{[s.da_type, s.da_status].filter(Boolean).join(" · ") || s.da_number || "Not stated"}</td>
-                    <td className="soft">{s.applicant ?? "Not yet found"}</td>
-                    <td className="soft">{s.contact_found ?? "Not yet found"}</td>
-                    <td className="soft">{s.ownership_signal ?? s.signal}</td>
-                    <td className="soft">{s.hold_years ?? ""}</td>
-                    <td>{s.priority}</td><td className="soft">{s.next_step}</td>
+                  <tr key={s.id} title={s.notes ?? ""}>
+                    <td className="nw"><Link href={href("table", { site: String(s.id) })}><b>{s.da_number}</b></Link> <Badge>{s.da_type}</Badge></td>
+                    <td className="clip"><div><Link href={href("table", { site: String(s.id) })}>{s.address}</Link></div><div className="soft">{s.suburb}</div></td>
+                    <td className="nw">{s.da_status ? <Badge tone={statusTone(s.da_status)}>{s.da_status}</Badge> : <Missing reason="The sheet has no status for this row. A determined application has its outcome checked on the council tracker." />}</td>
+                    <td className="nw">{s.zoning_confirmed ? <span title={s.zoning_source ?? ""}>{s.zoning}{s.zone_code && s.zone_code !== s.zoning ? <span className="soft"> · {s.zone_code}</span> : ""}</span> : <Missing reason={why("zoning", s)} />}</td>
+                    <td className="clip">{s.applicant ?? <Missing reason={why("applicant", s)} />}</td>
+                    <td className="nw">{s.abn ?? <Missing reason={why("abn", s)} />}</td>
+                    <td className="nw">{s.contact_found ?? <Missing reason={why("contact", s)} />}<div className="soft">{s.action_taken ?? <Missing reason={why("action", s)} />}</div></td>
+                    <td className="nw">{STAGES[s.stage]}</td>
+                    {week !== "all" && <td className="nw soft">{s.flag}</td>}
+                    <td className="nw soft">{s.identified_on?.toString().slice(0, 10)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -158,22 +220,24 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
         </Card>
       )}
 
-      {tab === "listings" && (
-        <Card title="Open-market land" sub="Public land-for-sale listings on realestate.com.au, captured 7 October 2026 from the Penrith area. Source observations only: zoning, planning controls, flood and heritage constraints and yield still need checking." source="Suffyan's sourcing run (REA)">
+      {tab === "companies" && (
+        <Card title="Companies" sub="The Director & Company Lookup tab. The workflow adds the company name and address. Everything else is filled by hand by the team." source="Developer_playbook sheet, Director & Company Lookup tab">
           <div style={{ overflow: "auto" }}>
-            <table className="t" style={{ minWidth: 760 }}>
-              <thead><tr><th>Address</th><th>Suburb</th><th>Land size</th><th>Price guide</th><th>Zoning</th><th>Source</th></tr></thead>
+            <table className="t compact">
+              <thead><tr><th>Company</th><th>Linked address</th><th>ACN / ABN</th><th>ASIC search done?</th><th>Directors</th><th>Role</th><th>Phone / email</th><th>Source used</th><th>Notes</th></tr></thead>
               <tbody>
-                {listings.map((s) => (
-                  <tr key={s.id}>
-                    <td style={{ fontWeight: 500 }}><Link href={`/pipeline?tab=listings&site=${s.id}`}>{s.address}</Link></td>
-                    <td>{s.suburb}</td>
-                    <td className="soft">{s.lot_size ?? "Not stated"}</td>
-                    <td className="soft">{s.price_guide ?? "Not published"}</td>
-                    <td><Badge tone={s.zoning_confirmed ? "done" : "prototype"}>{s.zoning_confirmed ? s.zoning : "TBC"}</Badge></td>
-                    <td className="soft">{s.source}</td>
-                  </tr>
-                ))}
+                {companies.length === 0 && <tr><td colSpan={9} className="soft">No companies have reached the dashboard yet.</td></tr>}
+                {companies.map((c) => {
+                  const empty = (v: string) => (v ? v : <span className="soft" title="Filled by hand by the team once the company is researched. Not in the sheet yet.">Not yet researched</span>);
+                  return (
+                    <tr key={c.name}>
+                      <td className="clip"><b>{c.name}</b></td><td className="clip">{c.linked_address}</td>
+                      <td className="nw">{empty(c.acn_abn)}</td><td className="nw">{empty(c.asic_done)}</td><td className="clip">{empty(c.directors)}</td><td className="nw">{empty(c.role)}</td>
+                      <td className="nw">{c.contact_details ? (reveal ? c.contact_details : mask(c.contact_details)) : empty("")}</td>
+                      <td className="nw">{empty(c.source_used)}</td><td className="clip">{c.notes}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -181,29 +245,39 @@ export default async function Pipeline({ searchParams }: { searchParams: Promise
       )}
 
       {tab === "snapshot" && (
-        <Card title="Weekly snapshot" sub="Mirrors the Weekly Snapshot tab in the tracker workbook (real rows only)." source="Postgres pipeline table">
-          <table className="t">
-            <thead><tr><th>Measure</th><th>Real rows</th>{!ctx.liveOnly && testing.length > 0 && <th>Data under testing</th>}</tr></thead>
-            <tbody>
-              {weekly(real).map(([k, v], i) => (
-                <tr key={String(k)}><td>{k}</td><td style={{ fontWeight: 600 }}>{v}</td>{!ctx.liveOnly && testing.length > 0 && <td className="soft">{weekly(testing)[i][1]}</td>}</tr>
-              ))}
-            </tbody>
-          </table>
+        <Card title="Weekly snapshot" sub={`${week === "all" ? "All weeks" : `Week of ${weekLabel(week)}`}. Counted the way the Weekly Snapshot tab in the sheet counts them.`} source="Developer_playbook sheet">
+          <table className="t compact"><tbody>{snapshot.map(([k, v]) => <tr key={k}><td>{k}</td><td style={{ fontWeight: 600 }}>{v}</td></tr>)}</tbody></table>
+        </Card>
+      )}
+
+      {tab === "gaps" && (
+        <Card title="Data not in the sheet" sub="These fields are kept so the gap is visible. Nothing has been assumed or filled in.">
+          <table className="t compact"><tbody>{NOT_IN_SHEET.map(([k, v]) => <tr key={k}><td className="nw"><b>{k}</b></td><td>{v}</td></tr>)}</tbody></table>
         </Card>
       )}
 
       {open && (
-        <Drawer title={open.address} sub={`${open.suburb} · ${open.lot_size ?? "lot size to confirm"}`} closeHref={`/pipeline?tab=${tab}`}
-          badges={<><Badge tone="red">{STAGES[open.stage]}</Badge><Badge tone={open.zoning_confirmed ? "done" : "prototype"}>{open.zoning_confirmed ? open.zoning : "Zoning TBC: confirm before acting"}</Badge>{open.is_sample && <TestBadge />}</>}>
+        <Drawer title={open.address} sub={`${open.suburb} · ${open.lga ?? ""}`} closeHref={closeHref}
+          badges={<><Badge tone="red">{STAGES[open.stage]}</Badge>{open.da_status && <Badge tone={statusTone(open.da_status)}>{open.da_status}</Badge>}<Badge tone={open.zoning_confirmed ? "done" : "prototype"}>{open.zoning_confirmed ? open.zoning : "Zoning TBC: confirm before acting"}</Badge></>}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(200px,1fr))", gap: "10px 16px" }}>
-            {[["Signal", open.signal], ["DA", [open.da_type, open.da_status, open.da_number].filter(Boolean).join(" · ")], ["Council area", open.lga], ["Price guide", open.price_guide], ["Seen", open.recency_label], ["Zoning source", open.zoning_source], ["FSR", open.fsr], ["Height limit", open.height_m], ["Applicant / company", open.applicant], ["ABN", open.abn], ["Contact found", open.contact_found], ["Ownership signal", open.ownership_signal], ["Hold period (years)", open.hold_years?.toString()], ["Source", open.source], ["Priority", open.priority], ["Assignee", open.assignee], ["Next step", open.next_step], ["Identified", open.identified_on?.toString().slice(0, 10)]].map(([k, v]) => (
-              <div key={k as string}><div className="soft" style={{ fontSize: 11 }}>{k}</div><div style={{ fontWeight: 500 }}>{(v as string) || "Not set"}</div></div>
+            {([
+              ["Application", [open.da_type, open.da_number].filter(Boolean).join(" · ")],
+              ["Council", open.lga],
+              ["Date identified", open.identified_on?.toString().slice(0, 10)],
+              ["Zoning", open.zoning_confirmed ? [open.zoning, open.zone_code !== open.zoning ? open.zone_code : null, open.zone_name].filter(Boolean).join(" · ") : null, why("zoning", open)],
+              ["Zoning source", open.zoning_source],
+              ["Applicant / company", open.applicant, why("applicant", open)],
+              ["ACN / ABN", open.abn, why("abn", open)],
+              ["Contact found", open.contact_found, why("contact", open)],
+              ["Action taken", open.action_taken, why("action", open)],
+              ["Source portal", open.source],
+            ] as [string, string | null | undefined, string?][]).map(([k, v, reason]) => (
+              <div key={k}><div className="soft" style={{ fontSize: 11 }}>{k}</div><div style={{ fontWeight: 500 }}>{v || <Missing reason={reason ?? "Not in the sheet."} />}</div></div>
             ))}
           </div>
-          {open.notes && <div className="soft">{open.notes}</div>}
-          {open.is_sample && <div className="soft">Data under testing: stage moves and zoning confirmation are switched off for invented rows.</div>}
-          {edit && !open.is_sample && (
+          {open.notes && <div><div className="soft" style={{ fontSize: 11 }}>Notes / next step (from the sheet)</div><div>{open.notes}</div></div>}
+          <div className="soft" style={{ fontSize: 12 }}>Not in the sheet for this application: {NOT_IN_SHEET.map(([k]) => k.toLowerCase()).join(", ")}. See Data not in the sheet.</div>
+          {edit && (
             <>
               <form action={moveStage} style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                 <input type="hidden" name="id" value={open.id} />

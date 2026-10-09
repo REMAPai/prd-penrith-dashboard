@@ -141,3 +141,15 @@ table.t tr.click { cursor: pointer; }
 .notice { background: var(--warn-tint); color: var(--warn-ink); font-size: 13px; padding: 10px 14px; border-radius: 8px; }
 .err { background: var(--brand-tint); color: var(--brand-ink); font-size: 13px; padding: 10px 12px; border-radius: 8px; }
 .maplibregl-map { font-family: inherit; }
+
+/* Development Playbook: week bar and compact tables */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { padding: 4px 12px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); background: #fff; color: var(--text); white-space: nowrap; }
+.chip:hover { background: var(--surface-soft); }
+.chip.on { background: var(--brand-tint); border-color: transparent; color: var(--brand-ink); font-weight: 500; }
+table.t.compact { font-size: 12px; }
+table.t.compact th { padding: 5px 8px; }
+table.t.compact td { padding: 5px 8px; vertical-align: top; line-height: 1.35; }
+table.t.compact td.nw { white-space: nowrap; }
+table.t.compact td.clip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 1; }

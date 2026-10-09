@@ -24,7 +24,7 @@ export default async function MapPage() {
   return (
     <>
       <PageHeader title="Map" status="prototype" sub="Pipeline sites, buyer demand and current listings." />
-      <Notice>Site pins sit at suburb centres for now (approximate), not on the exact lot. Demand uses {convos.status === "live" ? "the live conversation log" : "no data until the conversation log is connected"}; listings use {listings.status === "live" ? "live Vault data" : "no data until Vault is connected"}.</Notice>
+      <Notice>Playbook applications are not pinned yet: the Developer_playbook sheet holds no coordinates for them. Demand uses {convos.status === "live" ? "the live conversation log" : "no data until the conversation log is connected"}; listings use {listings.status === "live" ? "live Vault data" : "no data until Vault is connected"}.</Notice>
       <Card title="Sites, demand and listings" status="prototype">
         <MapLoader sites={sites} demand={demand} listings={pins} center={PENRITH_CENTER} />
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11 }} className="soft">

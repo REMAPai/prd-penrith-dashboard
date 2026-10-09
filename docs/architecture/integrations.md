@@ -33,3 +33,14 @@ Rules for any integration
 | Read path | Buyer page reads Postgres only. With no rows it shows Waiting on access and an empty table, never sample data |
 | Outbound | `OUTBOUND_SENDING_LIVE` only drives the dashboard notice; sending is controlled by the Outbound Gate node in n8n (held, allowlist empty) |
 | Workflow source | `n8n/build-v2.mjs` builds `n8n/prd-buyer-enquiry-assistant-v2.json` from `n8n/original/rl7I6eSBH6ibF0di.json`; code nodes live in `n8n/nodes/` |
+
+## Development Playbook weekly feed (added 9 Oct 2026)
+
+| Piece | Detail |
+|---|---|
+| Source of truth | The Developer_playbook Google Sheet: DA & CDC Tracker tab and Director & Company Lookup tab |
+| Write path | After each Monday run the n8n workflow "developer playbook" reads the tracker and company tabs and posts them to `POST /api/ingest/playbook` with header `x-ingest-key` (`INGEST_API_KEY`, the same key as the buyer feed; n8n credential "PRD ingest key") |
+| Body | `{ weekStart (a Monday), runAt, rows[], companies[] }`; validated with zod in `src/lib/playbook.ts`. Rows carry the sheet columns plus `flag` (new or changed this run), `zoneCode`, `zoneName`, `zoningSource` |
+| Re-runs | Idempotent. A row is keyed by council, type and application number; running the same week again updates it |
+| Read path | `/pipeline` reads Postgres only. With no run received it says so and shows an empty table, never sample data |
+| Gaps | Fields the sheet does not hold (priority, lot size, floor space ratio, height, ownership signal, hold period, assignee, coordinates) are shown as "Not available" with the reason, never filled in |
