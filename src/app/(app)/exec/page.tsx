@@ -13,7 +13,7 @@ export default async function Exec() {
   const st = convos.status;
   const rows = convos.data;
   const wk = rows.filter((c) => nowMs() - new Date(c.startedAt).getTime() < 7 * 86400000);
-  const sites = await query<{ stage: number; is_sample: boolean }>("select stage, is_sample from pipeline_sites where branch_id = $1 and is_sample = false", [ctx.branch.id]);
+  const sites = await query<{ stage: number; is_sample: boolean }>("select stage, is_sample from pipeline_sites where branch_id = $1 and is_sample = false and site_kind <> 'listing'", [ctx.branch.id]);
   const realSites = sites.filter((s) => !s.is_sample);
 
   const bySuburb: Record<string, number> = {};
@@ -35,7 +35,7 @@ export default async function Exec() {
         <Kpi label="Enquiries (7 days)" value={wk.length} status={st} />
         <Kpi label="Ready for an agent" value={rows.filter((c) => c.readyForAgent).length} status={st} />
         <Kpi label="Hot buyers" value={rows.filter((c) => c.temperature === "Hot").length} status={st} />
-        <Kpi label="Real DAs tracked" value={realSites.length} />
+        <Kpi label="Real planning items tracked" value={realSites.length} />
         <Kpi label="Project stock available" value="65 units" status="prototype" />
         <Kpi label="Meta leads vs target" value="45 / 100 wk" status="prototype" />
       </div>

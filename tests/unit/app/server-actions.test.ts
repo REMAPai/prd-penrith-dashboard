@@ -231,7 +231,7 @@ describe("pipeline actions", () => {
   const own = () => routeDb([[/select address, stage from pipeline_sites/, [{ address: "84 Cox Avenue", stage: 0 }]]]);
 
   beforeEach(async () => {
-    routeDb([[/from pipeline_sites where branch_id/, [site]]]);
+    routeDb([[/from pipeline_sites s where/, [site]]]);
     ({ moveStage, confirmZoning } = await actions(Pipeline as Page, { searchParams: Promise.resolve({ site: "1" }) }, makeCtx("branch_admin")));
   });
 

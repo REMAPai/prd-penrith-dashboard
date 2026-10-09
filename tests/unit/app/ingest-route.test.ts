@@ -119,3 +119,102 @@ describe("ingest route: turn", () => {
     expect(err).toHaveBeenCalled();
   });
 });
+
+describe("ingest route: playbook (weekly feed)", () => {
+  const row = { council: "Penrith", applicationNo: "DA99/0001", type: "DA", dateIdentified: "2026-10-08", address: "1 Test Street", suburb: "Testville", zoning: "R3", zoningSource: "Test map service", status: "In Assessment", applicant: "Test Applicant Pty Ltd", sourcePortal: "NSW Planning Portal", contactFound: "Not yet found", actionTaken: "Researching", notes: "Test note", flag: "NEW" };
+  const quiet = { ...row, applicationNo: "DA99/0002", flag: "" };
+  const bm = { ...row, council: "Blue Mountains", applicationNo: "X/1/2026" };
+  const body = (over: Record<string, unknown> = {}) => ({ weekStart: "2026-10-05", runAt: "2026-10-05T07:00:00+11:00", rows: [row], companies: [], ...over });
+  const calls = () => poolClient.query.mock.calls.map((c) => String(c[0]).trim());
+
+  it("needs the same key as the buyer feed", async () => {
+    configured();
+    expect((await post("playbook", body(), {})).status).toBe(401);
+  });
+
+  it("rejects a week that does not start on a Monday, an unknown council and a missing application number", async () => {
+    configured();
+    expect((await post("playbook", body({ weekStart: "2026-10-06" }))).status).toBe(400);
+    expect((await post("playbook", body({ rows: [{ ...row, council: "Elsewhere" }] }))).status).toBe(400);
+    expect((await post("playbook", body({ rows: [{ ...row, applicationNo: "" }] }))).status).toBe(400);
+    expect((await post("playbook", body({ rows: [{ ...row, type: "XYZ" }] }))).status).toBe(400);
+    expect(poolClient.query).not.toHaveBeenCalled();
+  });
+
+  it("stores the week, upserts each application and links only flagged rows to the week, in one transaction", async () => {
+    configured();
+    poolClient.query.mockImplementation(async (sql: string) => (/insert into pipeline_sites/.test(sql) ? { rows: [{ id: 7 }], rowCount: 1 } : { rows: [], rowCount: 0 }));
+    const r = await post("playbook", body({ rows: [row, quiet] }));
+    expect(await r.json()).toEqual({ ok: true, rows: 2, flagged: 1, companies: 0 });
+    const sql = calls();
+    expect(sql[0]).toBe("begin");
+    expect(sql.at(-1)).toBe("commit");
+    expect(sql.filter((s) => /^insert into playbook_weeks/.test(s))).toHaveLength(1);
+    expect(sql.filter((s) => /^insert into pipeline_sites/.test(s))).toHaveLength(2);
+    expect(sql.filter((s) => /^insert into playbook_week_items/.test(s))).toHaveLength(1);
+    const weeks = poolClient.query.mock.calls.find((c) => /insert into playbook_weeks/.test(String(c[0])))!;
+    expect(weeks[1]).toEqual(["pen", "2026-10-05", "2026-10-05T07:00:00+11:00", 2]);
+    const item = poolClient.query.mock.calls.find((c) => /insert into playbook_week_items/.test(String(c[0])))!;
+    expect(item[1]).toEqual(["pen", "2026-10-05", 7, "NEW", "In Assessment"]);
+    expect(poolClient.release).toHaveBeenCalled();
+  });
+
+  it("keys on branch, type and number, and never overwrites the stage the team set", async () => {
+    configured();
+    poolClient.query.mockImplementation(async (sql: string) => (/insert into pipeline_sites/.test(sql) ? { rows: [{ id: 1 }], rowCount: 1 } : { rows: [], rowCount: 0 }));
+    await post("playbook", body());
+    const upsert = calls().find((s) => /^insert into pipeline_sites/.test(s))!;
+    expect(upsert).toContain("on conflict (branch_id, da_type, da_number)");
+    expect(upsert).not.toMatch(/stage = excluded/);
+    expect(upsert).not.toMatch(/assignee|stage_changed_at = /);
+  });
+
+  it("keeps an earlier zone code and source when a later run does not carry one", async () => {
+    configured();
+    poolClient.query.mockImplementation(async (sql: string) => (/insert into pipeline_sites/.test(sql) ? { rows: [{ id: 1 }], rowCount: 1 } : { rows: [], rowCount: 0 }));
+    await post("playbook", body());
+    const upsert = calls().find((s) => /^insert into pipeline_sites/.test(s))!;
+    expect(upsert).toContain("zone_code = coalesce(excluded.zone_code, pipeline_sites.zone_code)");
+    expect(upsert).toContain("zoning_source = coalesce(excluded.zoning_source, pipeline_sites.zoning_source)");
+  });
+
+  it("files each council under its own branch and week", async () => {
+    configured();
+    poolClient.query.mockImplementation(async (sql: string) => (/insert into pipeline_sites/.test(sql) ? { rows: [{ id: 1 }], rowCount: 1 } : { rows: [], rowCount: 0 }));
+    await post("playbook", body({ rows: [row, bm] }));
+    const branches = poolClient.query.mock.calls.filter((c) => /insert into playbook_weeks/.test(String(c[0]))).map((c) => c[1]![0]);
+    expect(branches.sort()).toEqual(["bm", "pen"]);
+  });
+
+  it("stores companies from the Director & Company Lookup tab and nothing else about them", async () => {
+    configured();
+    await post("playbook", body({ rows: [], companies: [{ name: "Test Applicant Pty Ltd", linkedAddress: "1 Test Street" }] }));
+    const c = poolClient.query.mock.calls.find((x) => /insert into playbook_companies/.test(String(x[0])))!;
+    expect(c[1]).toEqual(["Test Applicant Pty Ltd", "1 Test Street", "", "", "", "", "", "", ""]);
+  });
+
+  it("treats an empty zone as unconfirmed and a given zone as coming from the named source", async () => {
+    configured();
+    poolClient.query.mockImplementation(async (sql: string) => (/insert into pipeline_sites/.test(sql) ? { rows: [{ id: 1 }], rowCount: 1 } : { rows: [], rowCount: 0 }));
+    await post("playbook", body({ rows: [{ ...row, zoning: "", zoningSource: "Test map service" }] }));
+    const params = poolClient.query.mock.calls.find((c) => /insert into pipeline_sites/.test(String(c[0])))![1]!;
+    expect(params[6]).toBe("TBC");
+    expect(params[7]).toBe(false);
+    expect(params[8]).toBeNull();
+  });
+
+  it("rolls back and returns 500 without leaking the error", async () => {
+    configured();
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    poolClient.query.mockImplementation(async (sql: string) => {
+      if (/insert into pipeline_sites/.test(sql)) throw new Error("connection string secret_user");
+      return { rows: [], rowCount: 0 };
+    });
+    const r = await post("playbook", body());
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(await r.json())).not.toContain("secret_user");
+    expect(calls()).toContain("rollback");
+    expect(poolClient.release).toHaveBeenCalled();
+    expect(err).toHaveBeenCalled();
+  });
+});

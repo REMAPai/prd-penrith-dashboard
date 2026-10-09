@@ -6,6 +6,7 @@ import { STAGES } from "@/lib/stages";
 
 const root = process.cwd();
 const dir = join(root, "db", "migrations");
+const REMOVAL = "009_remove_previous_playbook_rows.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const sql = (f: string) => readFileSync(join(dir, f), "utf8");
 const all = files.map(sql).join("\n");
@@ -36,8 +37,8 @@ describe("migrations are idempotent", () => {
       it("reference-data inserts use on conflict", () => {
         for (const s of stmts.filter((x) => /^insert\s+into/i.test(x))) expect(s, s.slice(0, 60)).toMatch(/on conflict/i);
       });
-      it("never destroys data", () => {
-        for (const s of stmts) {
+      it("never destroys data (the one approved removal has its own tests below)", () => {
+        for (const s of f === REMOVAL ? [] : stmts) {
           expect(s, s.slice(0, 60)).not.toMatch(/^\s*(truncate|delete\s+from)/i);
           if (/^\s*drop\s/i.test(s)) expect(s).toMatch(/if exists/i);
         }
@@ -105,17 +106,42 @@ describe("scripts/seed.mjs", () => {
     expect(seed).toMatch(/into companies[\s\S]*on conflict \(id\) do nothing/);
     expect(seed).toMatch(/into branches[\s\S]*on conflict \(id\) do nothing/);
     expect(seed).toMatch(/into users[\s\S]*on conflict \(email\) do update/);
-    expect(seed).toMatch(/is_sample = false`\)/);
-    expect(seed).not.toMatch(/is_sample = true/);
     expect(seed).toMatch(/from progress_items`\)/);
   });
 
-  it("seeds only known roles, real rows with unconfirmed zoning, and inserts no sample rows", () => {
+  it("seeds only known roles and inserts no pipeline rows: sites arrive from the weekly feed", () => {
     for (const m of seed.matchAll(/"(platform_admin|company_admin|branch_admin|marketing|agent|viewer)"/g)) expect(Object.keys(ROLE_LABEL)).toContain(m[1]);
-    expect(seed).toMatch(/'TBC', false, 0/);
+    expect(seed).not.toMatch(/insert into pipeline_sites/);
     expect(seed).not.toContain('"SAMPLE/"');
-    expect(seed).not.toMatch(/true\s*,\s*(current_date|\$\d+|'|now)/i);
-    expect(seed).toMatch(/\$9, false, \$10\)/);
+  });
+
+});
+
+describe("Development Playbook migrations", () => {
+  const schema = sql("008_development_playbook.sql");
+  const removal = sql(REMOVAL);
+
+  it("008 adds the sheet's missing columns, the weekly tables and one key per application, idempotently", () => {
+    expect(schema).toMatch(/add column if not exists action_taken/);
+    expect(schema).toMatch(/create table if not exists playbook_weeks/);
+    expect(schema).toMatch(/create table if not exists playbook_week_items/);
+    expect(schema).toMatch(/create table if not exists playbook_companies/);
+    expect(schema).toMatch(/create unique index if not exists pipeline_sites_application[\s\S]*\(branch_id, da_type, da_number\)/);
+  });
+
+  it("008 lets a row have no priority, because the sheet has none, and renames the project", () => {
+    expect(schema).toMatch(/alter column priority drop not null/);
+    expect(schema).toMatch(/update progress_items set project = 'Development Playbook' where project = 'Development Pipeline'/);
+  });
+
+  it("009 only removes rows the earlier loads created, never rows from the weekly feed", () => {
+    const deletes = statements(removal).filter((x) => /^delete\s+from/i.test(x));
+    expect(deletes).toHaveLength(2);
+    expect(deletes[0]).toMatch(/delete from pipeline_sites\s+where is_sample = true\s+or site_kind = 'listing'\s+or source in \('PlanningAlerts', 'Planning Alerts \(Penrith City Council\)', 'REA'\)/);
+    expect(deletes[0]).not.toMatch(/NSW Planning Portal/);
+    expect(deletes[1]).toMatch(/delete from progress_items\s+where project = 'Development Playbook'/);
+    for (const d of deletes) expect(d, d.slice(0, 40)).toMatch(/\bwhere\b/i);
+    expect(removal).not.toMatch(/truncate|drop\s/i);
   });
 });
 

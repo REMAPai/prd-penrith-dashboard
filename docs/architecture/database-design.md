@@ -1,6 +1,6 @@
 # Database Design
 
-Source of truth: `db/migrations/*.sql` (001_init, 002_tenants). Applied by `scripts/migrate.mjs`, tracked in `_migrations(name, at)`.
+Source of truth: `db/migrations/*.sql` (001 to 009). Applied by `scripts/migrate.mjs`, tracked in `_migrations(name, at)`.
 
 ## ERD
 
@@ -117,7 +117,7 @@ erDiagram
 | `branches` | Branches within a company with suburb lists (seed: `pen`, `bm`, `gp`) | cascade delete with company |
 | `users` | App users and roles | roles: platform_admin, company_admin, branch_admin, marketing, agent, viewer; `entra_oid` pins the Microsoft identity; `password_hash` only for fallback login |
 | `tenants` | Entra tenant ID to company/platform mapping and allowed email domains | seeded with REMAP.ai (platform) and PRD Group (company, only if company `prd` exists). Tenant IDs are public |
-| `pipeline_sites` | Development sites, stage 0 to 9, priority H/M/L, zoning with confirmation flag, DA fields, lat/lng, `is_sample` | six real DAs seeded with zoning TBC; sample rows flagged |
+| `pipeline_sites` | Development sites, stage 0 to 9, priority H/M/L, zoning with confirmation flag, DA fields, lat/lng, `is_sample` | six real DAs seeded with zoning TBC; 30 planning items and 25 REA land listings from the 7 Oct 2026 sourcing run loaded by `npm run db:seed-real` (`site_kind` da or listing); sample rows flagged |
 | `pipeline_events` | History of stage moves and zoning confirmations | cascade with site |
 | `tasks` | Activity and tasks | `due` is free text |
 | `feedback` | Feedback with rating, status, votes | status values enforced in app, not by constraint |
@@ -155,3 +155,18 @@ erDiagram
 - Buyer PII is read live from the n8n log, masked by default (`mask()`), revealed only to roles where `canRevealPii` is true (everyone except viewer). The spec calls for logging reveals; reveal logging is TBC.
 - Never log or print password hashes, tokens or buyer contact details. Sample data uses fictional names only.
 - Export or delete on request: manual process, TBC.
+
+## Development Playbook tables (migrations 008 and 009)
+
+The Development Playbook page (route `/pipeline`) mirrors the Developer_playbook Google Sheet, which the weekly n8n run writes. Each run posts its rows to `POST /api/ingest/playbook`.
+
+| Table or column | Purpose |
+|---|---|
+| `pipeline_sites` (existing) | One row per application per council. Key: `(branch_id, da_type, da_number)`. New columns: `action_taken`, `zone_code`, `zone_name`. `priority` may now be null because the sheet has no priority column. Sheet columns are overwritten on each run; `stage`, `assignee` and stage history belong to the app and are never overwritten |
+| `playbook_weeks` | One row per branch per Monday-start week the workflow ran (`run_at`, `rows_total`) |
+| `playbook_week_items` | The applications that run flagged as new or changed (`flag`, `status_at_week`). The page shows a week's items from here |
+| `playbook_companies` | The Director & Company Lookup tab: name, linked address, ACN/ABN, ASIC done, directors, role, contact details, source used, notes. Only what the sheet holds |
+
+Council to branch: Penrith is `pen`, Blue Mountains is `bm` (`COUNCIL_BRANCH` in `src/lib/playbook.ts`).
+
+Migration 009 deletes the rows the page showed before the weekly feed (invented rows, the 23 Jul and 7 Oct source observations, REA listings) and the progress lines that described them. It was approved by the project owner on 2026-10-09, is targeted by `is_sample`, `site_kind` and `source`, and never touches rows from the feed (source "NSW Planning Portal").

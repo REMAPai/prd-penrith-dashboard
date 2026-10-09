@@ -37,7 +37,7 @@ Enforced in the Vitest config and CI. Target for `src/lib`: lines 80 percent, br
 ## 5. Entry and exit criteria
 
 Entry for testing a change: code compiles, lint and tsc pass, acceptance criteria written, test data available.
-Exit for merge: all suites green in CI (`ci` and `e2e`), thresholds met, new and changed behaviour tested, bug fixes have a regression test, no open blocker defects.
+Exit for merge: `ci` green (unit, regression, build), and `e2e` green for production releases and UI-affecting changes, thresholds met, new and changed behaviour tested, bug fixes have a regression test, no open blocker defects.
 Exit for release: staging verification checklist and smoke tests pass, UAT items signed off (or deferred with a ticket), rollback path known.
 
 ## 6. Manual UAT checklist (Darren, Thomas)
@@ -51,7 +51,7 @@ Plain-language checks, done on https://prd.remap.ai in a morning AEST slot (Darr
 - [ ] Buyer Sequencing shows real conversations; reply order feels right (answer, inspection, then buyer details)
 - [ ] Phone and email are masked as expected
 - [ ] Listings match what I see in Vault; no private vendor details appear anywhere
-- [ ] Development Pipeline: I can move a site and its history is recorded; unconfirmed zoning shows "Confirm before acting"
+- [ ] Development Playbook: I can move a site and its history is recorded; unconfirmed zoning shows "Confirm before acting"
 - [ ] Map shows sites and listings in the right places
 - [ ] I can leave feedback from any page and see it listed
 - [ ] Users page: I can add and deactivate a user in my own company only

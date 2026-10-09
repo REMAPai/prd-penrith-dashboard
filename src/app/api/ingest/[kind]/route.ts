@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { pool } from "@/lib/db";
 import { CLAIM_WINDOW_MINUTES, claimSchema, msgHash, turnSchema } from "@/lib/data/ingest";
+import { COUNCIL_BRANCH, playbookSchema } from "@/lib/playbook";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,71 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ kind: stri
       client.release();
     }
     return NextResponse.json({ ok: true });
+  }
+
+  if (kind === "playbook") {
+    const p = playbookSchema.safeParse(body);
+    if (!p.success) return NextResponse.json({ error: "invalid body" }, { status: 400 });
+    const { weekStart, runAt, rows, companies } = p.data;
+    const client = await pool.connect();
+    let flagged = 0;
+    try {
+      await client.query("begin");
+
+      const perBranch = new Map<string, number>();
+      for (const r of rows) perBranch.set(COUNCIL_BRANCH[r.council], (perBranch.get(COUNCIL_BRANCH[r.council]) ?? 0) + 1);
+      for (const [branch, total] of perBranch) {
+        await client.query(
+          `insert into playbook_weeks (branch_id, week_start, run_at, rows_total) values ($1,$2,$3,$4)
+           on conflict (branch_id, week_start) do update set run_at = excluded.run_at, rows_total = excluded.rows_total`,
+          [branch, weekStart, runAt, total],
+        );
+      }
+
+      for (const r of rows) {
+        const branch = COUNCIL_BRANCH[r.council];
+        // The sheet is the source for these columns. Stage, assignee and stage history belong to the app and are never overwritten.
+        const site = await client.query<{ id: number }>(
+          `insert into pipeline_sites (branch_id, lga, da_number, da_type, address, suburb, zoning, zoning_confirmed, zoning_source, zone_code, zone_name, da_status, applicant, source, abn, contact_found, action_taken, notes, identified_on, site_kind, is_sample, stage)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,coalesce($19::date, current_date),'da',false,0)
+           on conflict (branch_id, da_type, da_number) where da_number is not null and da_type is not null do update set
+             lga = excluded.lga, address = excluded.address, suburb = excluded.suburb, zoning = excluded.zoning, zoning_confirmed = excluded.zoning_confirmed,
+             zoning_source = coalesce(excluded.zoning_source, pipeline_sites.zoning_source), zone_code = coalesce(excluded.zone_code, pipeline_sites.zone_code), zone_name = coalesce(excluded.zone_name, pipeline_sites.zone_name), da_status = excluded.da_status,
+             applicant = excluded.applicant, source = excluded.source, abn = excluded.abn, contact_found = excluded.contact_found,
+             action_taken = excluded.action_taken, notes = excluded.notes, identified_on = coalesce($19::date, pipeline_sites.identified_on), updated_at = now()
+           returning id`,
+          [branch, r.council, r.applicationNo, r.type, r.address, r.suburb, r.zoning || "TBC", r.zoning !== "", r.zoning ? r.zoningSource : null, r.zoneCode || null, r.zoneName || null,
+            r.status || null, r.applicant || null, r.sourcePortal || null, r.acnAbn || null, r.contactFound || null, r.actionTaken || null, r.notes || null, r.dateIdentified],
+        );
+        if (r.flag) {
+          flagged += 1;
+          await client.query(
+            `insert into playbook_week_items (branch_id, week_start, site_id, flag, status_at_week) values ($1,$2,$3,$4,$5)
+             on conflict (branch_id, week_start, site_id) do update set flag = excluded.flag, status_at_week = excluded.status_at_week`,
+            [branch, weekStart, site.rows[0].id, r.flag, r.status],
+          );
+        }
+      }
+
+      for (const c of companies) {
+        await client.query(
+          `insert into playbook_companies (company_id, name, linked_address, acn_abn, asic_done, directors, role, contact_details, source_used, notes)
+           values ('prd',$1,$2,$3,$4,$5,$6,$7,$8,$9)
+           on conflict (company_id, name) do update set linked_address = excluded.linked_address, acn_abn = excluded.acn_abn, asic_done = excluded.asic_done,
+             directors = excluded.directors, role = excluded.role, contact_details = excluded.contact_details, source_used = excluded.source_used, notes = excluded.notes, updated_at = now()`,
+          [c.name, c.linkedAddress, c.acnAbn, c.asicDone, c.directors, c.role, c.contact, c.sourceUsed, c.notes],
+        );
+      }
+
+      await client.query("commit");
+    } catch (e) {
+      await client.query("rollback");
+      console.error("ingest playbook failed", e instanceof Error ? e.message : "error");
+      return NextResponse.json({ error: "store failed" }, { status: 500 });
+    } finally {
+      client.release();
+    }
+    return NextResponse.json({ ok: true, rows: rows.length, flagged, companies: companies.length });
   }
 
   return NextResponse.json({ error: "not found" }, { status: 404 });

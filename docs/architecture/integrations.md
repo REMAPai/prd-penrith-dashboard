@@ -13,7 +13,7 @@ Constraint IDs C1 to C12 refer to `docs/requirements/srs.md` section 2.3. Status
 | Anthropic API | Conversation and extraction inside n8n | Key in n8n credentials | Not called by the dashboard | Cross-border processing noted under Privacy Act (SRS 8.3) | REMAP | In n8n |
 | Meta (Lead Ads, DMs) | Meta lead funnel | Planned: `META_*` | None yet | C10 `leads_retrieval` needs App Review and business verification (weeks); landing-page route used meanwhile, which does not feed Vault. Ad account compromised in September 2026 (right account TBC) | Thomas (ads); REMAP | Planned; Meta page is Sample |
 | Google Sheets | Projects stock, Meta leads, conversation log source | Planned: read-only service account (`GOOGLE_SERVICE_ACCOUNT_JSON`) | None yet (n8n reads the conversation sheet) | Sheet access must be granted by Thomas | Thomas; REMAP | Planned |
-| NSW Planning Portal / councils | DA feed, zoning (manual confirm in Spatial Viewer) | Free, no key (TBC) | None yet. Six real DAs were seeded from PlanningAlerts | Zoning must be human-confirmed; paid sources (RP Data, Cordell, Cityscope) Waiting on access | REMAP; Darren (paid sources decision) | Planned |
+| NSW Planning Portal / councils | DA feed, zoning (manual confirm in Spatial Viewer) | Free, no key (TBC) | None yet. Six real DAs seeded from PlanningAlerts; 30 planning items and 25 REA land listings loaded from Suffyan's 7 Oct 2026 file (`scripts/data`) | Zoning must be human-confirmed; paid sources (RP Data, Cordell, Cityscope) Waiting on access | REMAP; Darren (paid sources decision) | Planned |
 | Jira | Progress items, ticket links | Planned: `JIRA_*` | None yet | Project keys BLD/AIS per SRS; PRD access not set up | Irfan | Planned |
 | Teams | Failure alerts | Webhook, destination TBC | Not used by the dashboard | Destination undecided (Darren) | Irfan | TBC |
 
@@ -33,3 +33,14 @@ Rules for any integration
 | Read path | Buyer page reads Postgres only. With no rows it shows Waiting on access and an empty table, never sample data |
 | Outbound | `OUTBOUND_SENDING_LIVE` only drives the dashboard notice; sending is controlled by the Outbound Gate node in n8n (held, allowlist empty) |
 | Workflow source | `n8n/build-v2.mjs` builds `n8n/prd-buyer-enquiry-assistant-v2.json` from `n8n/original/rl7I6eSBH6ibF0di.json`; code nodes live in `n8n/nodes/` |
+
+## Development Playbook weekly feed (added 9 Oct 2026)
+
+| Piece | Detail |
+|---|---|
+| Source of truth | The Developer_playbook Google Sheet: DA & CDC Tracker tab and Director & Company Lookup tab |
+| Write path | After each Monday run the n8n workflow "developer playbook" reads the tracker and company tabs and posts them to `POST /api/ingest/playbook` with header `x-ingest-key` (`INGEST_API_KEY`, the same key as the buyer feed; n8n credential "PRD ingest key") |
+| Body | `{ weekStart (a Monday), runAt, rows[], companies[] }`; validated with zod in `src/lib/playbook.ts`. Rows carry the sheet columns plus `flag` (new or changed this run), `zoneCode`, `zoneName`, `zoningSource` |
+| Re-runs | Idempotent. A row is keyed by council, type and application number; running the same week again updates it |
+| Read path | `/pipeline` reads Postgres only. With no run received it says so and shows an empty table, never sample data |
+| Gaps | Fields the sheet does not hold (priority, lot size, floor space ratio, height, ownership signal, hold period, assignee, coordinates) are shown as "Not available" with the reason, never filled in |

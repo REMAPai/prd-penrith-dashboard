@@ -34,11 +34,23 @@ export default async function globalSetup() {
       );
     }
 
-    // A fresh site per run so the stage-move and zoning tests start from a known state.
+    // A fresh application per run, inside a weekly run, so the stage-move and zoning tests start from a known state.
     const address = `E2E Test Site ${Date.now()}`;
+    const week = "2026-10-05";
     await client.query(
-      `insert into pipeline_sites (branch_id, address, suburb, zoning, zoning_confirmed, stage, priority, signal, source, next_step, lat, lng, is_sample)
-       values ('pen', $1, 'Penrith', 'TBC', false, 0, 'M', 'E2E', 'e2e', 'Confirm zoning', -33.751, 150.694, false)`,
+      `insert into playbook_weeks (branch_id, week_start, run_at, rows_total) values ('pen', $1, now(), 1)
+       on conflict (branch_id, week_start) do update set rows_total = 1`,
+      [week],
+    );
+    const site = await client.query<{ id: number }>(
+      `insert into pipeline_sites (branch_id, lga, address, suburb, zoning, zoning_confirmed, stage, da_number, da_type, da_status, source, site_kind, lat, lng, is_sample)
+       values ('pen', 'Penrith', $1, 'Penrith', 'TBC', false, 0, $2, 'DA', 'In Assessment', 'e2e', 'da', -33.751, 150.694, false)
+       returning id`,
+      [address, `E2E-${Date.now()}`],
+    );
+    await client.query(`insert into playbook_week_items (branch_id, week_start, site_id, flag, status_at_week) values ('pen', $1, $2, 'NEW', 'In Assessment')`, [week, site.rows[0].id]);
+    await client.query(
+      `insert into playbook_companies (company_id, name, linked_address) values ('prd', 'E2E Test Company Pty Ltd', $1) on conflict (company_id, name) do nothing`,
       [address],
     );
     // One invented conversation in the dashboard database (the live source), so the buyer pages have something to show.

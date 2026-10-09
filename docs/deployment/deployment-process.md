@@ -10,7 +10,7 @@ Never push straight to `staging` or `production`; merge a reviewed pull request.
 ## 2. Pipeline (`.github/workflows/pipeline.yml`)
 
 - **Pull request to staging or production:** `ci` (lint, type check, build, plus coverage) and `e2e` (Playwright, Postgres service container).
-- **Push (merged PR) to `staging`:** `ci` and `e2e`, then `deploy-staging` calls Dokploy `application.deploy`, then waits until `https://prd.remap.ai/login` returns 200 (up to 10 minutes).
+- **Push (merged PR) to `staging`:** `ci`, then `deploy-staging` calls Dokploy `application.deploy`, then waits until `https://prd.remap.ai/login` returns 200 (up to 10 minutes).
 - **Push to `production`:** `ci`, then `deploy-production` only when repository variable `DOKPLOY_PRODUCTION_APP_ID` is set. It is not set, so production does not deploy.
 
 ## 3. Dokploy (https://manage.remap.ai)
@@ -27,7 +27,7 @@ GitHub settings: secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY`; variables `DOKPLOY_ST
 
 1. Work on `feature/<name>` or `fix/<name>`; run locally: `npm run lint`, `npx tsc --noEmit`, `npm run build`, tests.
 2. Open a PR into `staging`: description with Jira key, plan per phase, test evidence, screenshots, migration and env var notes, rollback note.
-3. Wait for `ci` and `e2e` green and a second reviewer's approval.
+3. Wait for `ci` green (run `e2e` from the Actions tab when UI changed) and a second reviewer's approval.
 4. Merge. The `staging` push triggers `ci`, `e2e`, then `deploy-staging`.
 5. Watch the run (`gh run list`, `gh pr checks`, or the Actions page) until the health check passes.
 6. Run the verification checklist (section 8).

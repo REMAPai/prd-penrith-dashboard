@@ -11,7 +11,7 @@ export default async function PM() {
       title="Property Management"
       lead="Coming next: every rental deadline in one place."
       gets={["Arrears tracker with next action and due date", "Inspections and lease renewals calendar", "Landlord health-check pipeline for new managements", "Lost-management survey follow-up"]}
-      when="After Buyer Sequencing and the Development Pipeline are stable"
+      when="After Buyer Sequencing and the Development Playbook are stable"
     />
   );
 }

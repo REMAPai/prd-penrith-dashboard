@@ -35,27 +35,6 @@ for (const [email, name, role, c, b] of users) {
   );
 }
 
-// Real rows: tracker v2, live test run via PlanningAlerts on 23 Jul 2026. Zoning is TBC for all of them.
-// lat/lng are suburb centroids (approximate), not parcel locations.
-const real = [
-  ["84 Cox Avenue", "Penrith", "DA", "Lodged", "M", "DA lodged", "Strata Title Subdivision x 4 Lots. Confirm zoning and applicant via Penrith DA Tracker.", "2026-06-26", -33.751, 150.694],
-  ["18 Sydney Street", "St Marys", "DA", "Lodged", "H", "DA lodged", "6 townhouses plus basement carpark. Strong target-zone candidate, confirm zoning.", "2026-06-29", -33.765, 150.775],
-  ["116-132 Chain-O-Ponds Road", "Mulgoa", "DA", "Lodged", "L", "DA lodged", "Construction of a dual occupancy. Rural-fringe, check zoning before pursuing.", "2026-06-26", -33.725, 150.67],
-  ["61-63 Great Western Highway", "Kingswood", "DA", "Lodged", "M", "DA lodged", "Mod to an approved Multi Dwelling Housing site. Existing MDH site, area intel only.", "2026-06-23", -33.76, 150.72],
-  ["24 Hobart Street", "Oxley Park", "DA", "Lodged", "M", "DA lodged", "Strata subdivision of an existing dual occupancy into 2 lots.", "2026-06-23", -33.755, 150.79],
-  ["1240-1242 Mulgoa Road", "Mulgoa", "DA", "Refused", "H", "Refusal under review", "Review of Refusal Determination for Torrens Title Subdivision x 2 Lots. Motivated-seller signal.", "2026-06-28", -33.73, 150.67],
-];
-const existing = await q(`select count(*)::int as n from pipeline_sites where is_sample = false`);
-if (!existing.rows[0].n) {
-  for (const [addr, sub, type, status, pri, sig, notes, on, lat, lng] of real) {
-    await q(
-      `insert into pipeline_sites (branch_id, address, suburb, zoning, zoning_confirmed, stage, priority, signal, da_type, da_status, source, assignee, next_step, notes, lat, lng, is_sample, identified_on)
-       values ('pen', $1, $2, 'TBC', false, 0, $3, $4, $5, $6, 'PlanningAlerts', null, 'Confirm zoning on NSW Planning Portal Spatial Viewer', $7, $8, $9, false, $10)`,
-      [addr, sub, pri, sig, type, status, notes, lat, lng, on],
-    );
-  }
-}
-
 // Progress items shown on Delivery Progress. Edit in the app (platform admin) or replace with a Jira feed later.
 const prog = (await q(`select count(*)::int as n from progress_items`)).rows[0].n;
 if (!prog) {
@@ -64,21 +43,26 @@ if (!prog) {
     ["Buyer Sequencing", "ask", "Name the contact category for qualified buyers", "Darren", "This week"],
     ["Buyer Sequencing", "ask", "Confirm the Hot buyer definition", "Darren", "This week"],
     ["Buyer Sequencing", "ask", "Choose where failure alerts go (Teams)", "Darren", "This week"],
-    ["Development Pipeline", "ask", "Agree the must-have field list", "Darren", "Next week"],
-    ["Development Pipeline", "ask", "Confirm RP Data and Cordell Connect access and cost", "Darren", "Next week"],
+    ["Development Playbook", "ask", "Agree the must-have field list", "Darren", "Next week"],
+    ["Development Playbook", "ask", "Confirm RP Data and Cordell Connect access and cost", "Darren", "Next week"],
     ["Meta Lead Funnel", "ask", "Confirm landing-page forms feed Vault", "Thomas", "This week"],
     ["Buyer Sequencing", "shipped", "Conversation log now feeds the dashboard", null, null],
     ["Buyer Sequencing", "shipped", "Vault connection live against real listings", null, null],
-    ["Development Pipeline", "shipped", "Real DAs loaded into the pipeline", null, null],
     ["Platform", "shipped", "Data-status badges on every widget", null, null],
     ["Buyer Sequencing", "blocker", "ClickSend inbound rule not set", "Thomas", "6 days"],
     ["Buyer Sequencing", "blocker", "Contact category not named", "Darren", "4 days"],
     ["Buyer Sequencing", "blocker", "Alert destination undecided", "Darren", "3 days"],
     ["Buyer Sequencing", "milestone", "Conversation log connected", null, "done"],
-    ["Development Pipeline", "milestone", "Pipeline loaded with real DAs", null, "done"],
     ["Buyer Sequencing", "milestone", "Outbound send released", null, "next"],
     ["Buyer Sequencing", "milestone", "Vault listings sync", null, "next"],
     ["Platform", "milestone", "Entra sign-in for company users", null, "next"],
+    ["Development Playbook", "ask", "Name who runs the Monday playbook at PRD", "Darren", "Next week"],
+    ["Development Playbook", "ask", "Agree the ownership hold-period rule", "Darren", "Next week"],
+    ["Development Playbook", "shipped", "Pipeline board, table and weekly snapshot with zoning confirmation", null, null],
+    ["Development Playbook", "blocker", "RP Data and Cordell access and cost not confirmed", "Darren with Cotality", "Open"],
+    ["Development Playbook", "milestone", "Weekly feed from the NSW Planning Portal", null, "next"],
+    ["Development Playbook", "milestone", "Owner and director trace recorded on each site", null, "next"],
+    ["Development Playbook", "milestone", "Monday report run by a PRD team member", null, "next"],
   ];
   for (const [project, kind, text, owner, due] of items) {
     await q(`insert into progress_items (project, kind, text, owner, due) values ($1,$2,$3,$4,$5)`, [project, kind, text, owner, due]);

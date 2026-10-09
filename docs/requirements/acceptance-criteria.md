@@ -46,7 +46,7 @@ Other projects: AC for Development Site Playbook and Meta are in SRS sections 4.
 
 ## 4. Engineering acceptance (this repo)
 
-- CI green (`ci`, `e2e`), coverage thresholds met, bug fixes have regression tests
+- CI green (`ci`; `e2e` for production releases and UI-affecting changes), coverage thresholds met, bug fixes have regression tests
 - Authorization server-side on every page and action; zod validation; parameterised SQL
 - Vendor-confidential Vault fields never forwarded
 - Docs updated; verification checklist in `docs/deployment/deployment-process.md` passed on staging

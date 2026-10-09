@@ -28,15 +28,15 @@ test.describe("Live only toggle (read only)", () => {
     await expect(page.getByRole("button", { name: "All" })).toHaveClass(/on/);
   });
 
-  test("the pipeline shows only real sites, with no Sample labels in either mode", async ({ page }) => {
+  test("the Development Playbook shows weeks and real rows only, with no sample labels, in either mode", async ({ page }) => {
     await page.goto("/pipeline?tab=table");
-    await expect(page.getByRole("link", { name: "84 Cox Avenue" })).toBeVisible();
-    await expect(page.locator("td", { hasText: "Sample" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Development Playbook" })).toBeVisible();
+    await expect(page.locator(".chips .chip", { hasText: "5 Oct to 11 Oct 2026" })).toBeVisible();
+    await expect(page.getByText("Data under testing")).toHaveCount(0);
     await page.getByRole("button", { name: "Live only" }).click();
-    await expect(page.getByRole("link", { name: "84 Cox Avenue" })).toBeVisible();
-    await expect(page.locator("td", { hasText: "Sample" })).toHaveCount(0);
+    await expect(page.locator(".chips .chip", { hasText: "5 Oct to 11 Oct 2026" })).toBeVisible();
+    await expect(page.getByText("Data under testing")).toHaveCount(0);
     await page.getByRole("button", { name: "All" }).click();
-    await expect(page.getByRole("link", { name: "84 Cox Avenue" })).toBeVisible();
   });
 
   test("Buyer Sequencing reads the live database, so it stays visible in Live only", async ({ page }) => {
