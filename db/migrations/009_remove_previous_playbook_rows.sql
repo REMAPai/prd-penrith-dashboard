@@ -1,8 +1,3 @@
--- 009 Remove the rows the Development Playbook showed before the weekly feed: invented rows, the 23 Jul and 7 Oct source observations
--- and the REA land listings. Approved in chat by the project owner on 2026-10-09: the page now shows only the Developer_playbook sheet.
--- Targeted by is_sample, site_kind and source, so rows written by the weekly feed (source "NSW Planning Portal") are never touched.
--- Stage history for these rows goes with them (pipeline_events cascades). Idempotent: a second run deletes nothing.
-
 delete from pipeline_sites
 where is_sample = true
    or site_kind = 'listing'
