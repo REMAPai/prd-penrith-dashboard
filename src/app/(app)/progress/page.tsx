@@ -11,7 +11,7 @@ type Item = { id: number; project: string; kind: string; text: string; owner: st
 // Percent = share of SRS requirements marked Done for the project (rounded estimate, see docs/requirements/srs.md).
 const PROJECTS: { name: string; status: Status; pct: number; body: string; next: string }[] = [
   { name: "Buyer Sequencing", status: "live", pct: 72, body: "Answers portal enquiries from live Vault data and logs every conversation. Outbound sending is held until the inbound reply rule is set.", next: "Release outbound send" },
-  { name: "Development Pipeline", status: "prototype", pct: 35, body: "Real DAs are tracked through ten stages. The fields we are building towards are shown as data under testing. The weekly feed from the NSW Planning Portal is next, and zoning is confirmed by a person before any priority list.", next: "Confirm field list with Darren" },
+  { name: "Development Playbook", status: "prototype", pct: 35, body: "Each Monday's run is shown week by week, exactly as it is written in the Developer_playbook sheet: applications, zone, applicant, status and companies. Fields the sheet does not hold are marked with the reason.", next: "First weekly run posted to the dashboard" },
   { name: "Meta Lead Funnel", status: "waiting", pct: 15, body: "Scoped. Landing-page enquiries still go through a manual sheet. Direct messages wait on Meta approval.", next: "Confirm form wiring to Vault" },
   { name: "After-hours Voice Agent", status: "planned", pct: 5, body: "Prototype only. No build until Buyer Sequencing is stable and the scope and cost are approved.", next: "Scope and cost sign-off" },
   { name: "Google Reviews", status: "planned", pct: 0, body: "Parked after the realestate.com.au conversation.", next: "Reactivate when asked" },

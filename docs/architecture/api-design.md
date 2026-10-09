@@ -9,6 +9,8 @@ The app exposes very little HTTP API. Pages and server actions do the work; only
 | `/api/auth/entra/login` | GET | Public (path allowed by proxy) | Checks `entraEnabled()`; creates `state`, `nonce`, PKCE verifier; sets httpOnly `prd_oidc` cookie (SameSite=Lax, Secure in production, path `/api/auth/entra`, 10 min) | 302 to Entra, or to `/login?error=` |
 | `/api/auth/entra/callback` | GET | Public | Requires `prd_oidc` cookie and `code`; `state` must match; ID token verified (JWKS, issuer from `tid`, audience, nonce); `resolveUser` tenant and user rules; denials audited | 302 to `/companies` (platform admin) or `/progress`, sets `prd_session`; errors to `/login?error=` |
 
+| `/api/ingest/playbook` | POST | Header `x-ingest-key` (`INGEST_API_KEY`) | zod: Monday `weekStart`, council in Penrith or Blue Mountains, DA or CDC, at most 3,000 rows and 2,000 companies; parameterised SQL in one transaction | `{ ok, rows, flagged, companies }`; 400 invalid, 401 bad key, 503 not configured, 500 store failed (generic) |
+
 Page routes (all under the proxy cookie gate except `/login`): `/`, `/login`, `/progress`, `/exec`, `/buyer`, `/listings`, `/pipeline`, `/map`, `/projects`, `/meta`, `/pm`, `/comm`, `/market`, `/finance`, `/tasks`, `/alerts`, `/feedback`, `/sources`, `/users`, `/audit`, `/companies`. Visibility per role is defined in `src/lib/roles.ts` (`PAGES`).
 
 ## 2. Server actions

@@ -9,7 +9,7 @@ const PAGES: [string, string][] = [
   ["/exec", "Executive Overview"],
   ["/buyer", "Buyer Sequencing"],
   ["/listings", "Listings and Demand"],
-  ["/pipeline", "Development Pipeline"],
+  ["/pipeline", "Development Playbook"],
   ["/map", "Map"],
   ["/projects", "Projects and Stock"],
   ["/meta", "Meta Lead Funnel"],

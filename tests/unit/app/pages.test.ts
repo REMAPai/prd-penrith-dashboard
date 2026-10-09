@@ -48,10 +48,11 @@ const PAGE_FNS: Record<string, Page> = {
 } as unknown as Record<string, Page>;
 
 const sites = [
-  { id: 1, branch_id: "pen", address: "84 Cox Avenue", suburb: "Penrith", zoning: "TBC", zoning_confirmed: false, lot_size: null, stage: 0, priority: "M", signal: "DA lodged", da_number: null, da_type: "DA", da_status: "Lodged", source: "PlanningAlerts", assignee: null, next_step: "Confirm zoning", notes: null, is_sample: false, identified_on: "2026-06-26", stage_changed_at: "2026-06-26T00:00:00Z", lat: -33.75, lng: 150.69 },
-  { id: 2, branch_id: "pen", address: "9 Sample Street", suburb: "St Marys", zoning: "R3", zoning_confirmed: true, lot_size: "600 m2", stage: 4, priority: "H", signal: "Sample", da_number: "SAMPLE/1", da_type: null, da_status: null, source: "Sample", assignee: "Sample Agent", next_step: null, notes: null, is_sample: true, identified_on: "2026-09-01", stage_changed_at: "2026-09-02T00:00:00Z", lat: -33.76, lng: 150.77 },
-  { id: 3, branch_id: "pen", address: "92 Tench Avenue, Penrith NSW 2750", suburb: "Penrith", zoning: "TBC", zoning_confirmed: false, lot_size: "5,526 m2", stage: 0, priority: "M", signal: "Open-market land listing", da_number: null, da_type: null, da_status: null, source: "REA", assignee: null, next_step: null, notes: null, is_sample: false, identified_on: "2026-10-07", stage_changed_at: "2026-10-07T00:00:00Z", lat: null, lng: null, site_kind: "listing", price_guide: null, recency_label: "Captured 7 Oct 2026" },
+  { id: 1, branch_id: "pen", lga: "Penrith", address: "1 Test Street", suburb: "Testville", zoning: "Other", zoning_confirmed: true, zoning_source: "Test map service", zone_code: "E4", zone_name: "Test zone", lot_size: null, stage: 0, priority: null, signal: null, da_number: "DA99/0001", da_type: "DA", da_status: "In Assessment", source: "NSW Planning Portal", assignee: null, next_step: null, notes: "Test note from the sheet", is_sample: false, identified_on: "2026-10-08", stage_changed_at: "2026-10-08T00:00:00Z", lat: -33.75, lng: 150.69, site_kind: "da", applicant: "Test Applicant Pty Ltd", abn: null, contact_found: "Not yet found", action_taken: "Researching", flag: "NEW" },
+  { id: 2, branch_id: "pen", lga: "Penrith", address: "2 Test Street", suburb: "Testville", zoning: "TBC", zoning_confirmed: false, zoning_source: null, zone_code: null, zone_name: null, lot_size: null, stage: 0, priority: null, signal: null, da_number: "CDC-0002", da_type: "CDC", da_status: null, source: "NSW Planning Portal", assignee: null, next_step: null, notes: null, is_sample: false, identified_on: "2026-10-08", stage_changed_at: "2026-10-08T00:00:00Z", lat: -33.76, lng: 150.7, site_kind: "da", applicant: null, abn: null, contact_found: null, action_taken: null, flag: "NEW" },
 ];
+const weekRows = [{ week_start: "2026-10-05", run_at: "2026-10-05T07:00:00Z", rows_total: 2, items: 2 }, { week_start: "2026-09-28", run_at: "2026-09-28T07:00:00Z", rows_total: 1, items: 1 }];
+const companyRows = [{ name: "Test Applicant Pty Ltd", linked_address: "1 Test Street", acn_abn: "", asic_done: "", directors: "", role: "", contact_details: "", source_used: "", notes: "" }];
 const userRows = [{ email: "v@prd.test", name: "Vee", role: "viewer", company_id: "prd", branch_id: "pen", status: "active", last_login: null }];
 
 const seedDb = () =>
@@ -60,6 +61,9 @@ const seedDb = () =>
     [/from tenants t/, [{ tid: "7b712bf0-a681-4071-adb1-fd3b7cdd4238", name: "REMAP.ai", kind: "platform", domains: ["remap.ai"], users: "1" }]],
     [/select id, company_id, name, suburbs from branches/, BRANCHES],
     [/select name from companies/, [{ name: "PRD Group" }]],
+    [/from playbook_weeks/, weekRows],
+    [/from playbook_week_items/, sites],
+    [/from playbook_companies/, companyRows],
     [/from pipeline_sites/, sites],
     [/from users/, userRows],
     [/from tasks/, [{ id: 1, text: "A task", assignee: "Bob", due: "Fri", done: false }]],
@@ -103,66 +107,96 @@ describe("every page x every role", () => {
   }
 });
 
-describe("pipeline page", () => {
-  it("reads the active branch's sites and labels invented rows as Data under testing", async () => {
+describe("Development Playbook page", () => {
+  it("reads the active branch's weeks and sites and shows the sheet's fields", async () => {
     as("branch_admin");
     const html = await renderPage(Pipeline, sp({ tab: "table" }));
-    const call = callsMatching(/from pipeline_sites where branch_id/)[0];
-    expect(call[1]).toEqual(["pen"]);
-    expect(html).toContain("84 Cox Avenue");
-    expect(html).toContain("9 Sample Street");
-    expect(html).toContain("Rows marked Data under testing");
-    expect(html).toContain("Data under testing</span>");
-    expect(html).toContain("Under active development");
-    expect(html).toContain("Needs your input");
-    expect(html).toContain("Being built");
-    expect(html).toContain('href="/progress"');
-    expect(html).toContain("Sites in pipeline (incl. data under testing)");
+    expect(callsMatching(/from playbook_weeks/)[0][1]).toEqual(["pen"]);
+    expect(callsMatching(/from pipeline_sites s where/)[0][1]).toEqual(["pen"]);
+    expect(html).toContain("Development Playbook");
+    expect(html).toContain("DA99/0001");
+    expect(html).toContain("Test Applicant Pty Ltd");
+    expect(html).toContain("Not yet found");
+    expect(html).not.toContain("Data under testing");
   });
 
-  it("lists open-market land on its own tab and keeps it off the table", async () => {
+  it("shows a week bar with each week's date range and defaults to the latest run", async () => {
     as("branch_admin");
-    const table = await renderPage(Pipeline, sp({ tab: "table" }));
-    expect(table).not.toContain("92 Tench Avenue");
-    const land = await renderPage(Pipeline, sp({ tab: "listings" }));
-    expect(land).toContain("92 Tench Avenue");
-    expect(land).toContain("5,526 m2");
-    expect(land).toContain("Not published");
-    expect(land).toContain("Source observations only");
+    const html = await renderPage(Pipeline, sp({ tab: "board" }));
+    expect(html).toContain("5 Oct to 11 Oct 2026");
+    expect(html).toContain("28 Sep to 4 Oct 2026");
+    expect(html).toContain("All weeks");
+    expect(callsMatching(/from playbook_week_items i join pipeline_sites/)[0][1]).toEqual(["pen", "2026-10-05"]);
   });
 
-  it("hides sample rows entirely in Live only mode", async () => {
+  it("opens the week in the URL, ignoring one that has no run", async () => {
     as("branch_admin");
-    jar.set("liveOnly", "1");
+    await renderPage(Pipeline, sp({ tab: "board", week: "2026-09-28" }));
+    expect(callsMatching(/from playbook_week_items i join pipeline_sites/).at(-1)![1]).toEqual(["pen", "2026-09-28"]);
+    await renderPage(Pipeline, sp({ tab: "board", week: "2020-01-06" }));
+    expect(callsMatching(/from playbook_week_items i join pipeline_sites/).at(-1)![1]).toEqual(["pen", "2026-10-05"]);
+  });
+
+  it("explains why a value is missing instead of leaving it blank or guessing", async () => {
+    as("branch_admin");
     const html = await renderPage(Pipeline, sp({ tab: "table" }));
-    expect(html).toContain("84 Cox Avenue");
-    expect(html).not.toContain("9 Sample Street");
-    expect(html).not.toContain("Rows marked Data under testing");
+    expect(html).toContain("Not available");
+    expect(html).toContain("CDCs are not in the council tracker, so there is no applicant name.");
+    expect(html).toContain("No ABN or ACN in the sheet yet.");
   });
 
-  it("opens the drawer for a site, with move and zoning forms for editors only", async () => {
+  it("says so when no weekly run has arrived", async () => {
+    as("branch_admin");
+    routeDb([[/select name from companies/, [{ name: "PRD Group" }]], [/select id, company_id, name, suburbs from branches/, BRANCHES]]);
+    const html = await renderPage(Pipeline, sp({ tab: "table" }));
+    expect(html).toContain("No weekly run has reached the dashboard yet");
+    expect(html).toContain("No applications for this selection.");
+  });
+
+  it("opens the drawer for an application, with move and zoning forms for editors only", async () => {
     as("marketing");
-    let html = await renderPage(Pipeline, sp({ site: "1" }));
+    let html = await renderPage(Pipeline, sp({ site: "2" }));
     expect(html).toContain("Move to stage");
     expect(html).toContain("Confirm zoning");
     expect(html).toContain("Zoning TBC: confirm before acting");
     as("agent");
-    html = await renderPage(Pipeline, sp({ site: "1" }));
-    expect(html).toContain("84 Cox Avenue");
+    html = await renderPage(Pipeline, sp({ site: "2" }));
+    expect(html).toContain("2 Test Street");
     expect(html).not.toContain("Move to stage");
   });
 
-  it("does not offer zoning confirmation once confirmed", async () => {
+  it("shows the sheet's notes and the zone source for a confirmed row, without a zoning form", async () => {
     as("branch_admin");
-    const html = await renderPage(Pipeline, sp({ site: "2" }));
+    const html = await renderPage(Pipeline, sp({ site: "1" }));
+    expect(html).toContain("Test note from the sheet");
+    expect(html).toContain("Test map service");
+    expect(html).toContain("E4");
     expect(html).not.toContain("Confirm zoning");
   });
 
-  it("renders the snapshot tab from real rows only", async () => {
+  it("counts the snapshot the way the sheet does, by Date Identified inside the week", async () => {
     as("branch_admin");
-    const html = await renderPage(Pipeline, sp({ tab: "snapshot" }));
+    const html = await renderPage(Pipeline, sp({ tab: "snapshot", week: "2026-10-05" }));
     expect(html).toContain("Weekly snapshot");
-    expect(html).toContain("Approaches made (total)");
+    expect(html).toContain("New DAs identified");
+    expect(html).toContain("Owner or director contact still needed");
+    expect(html).toContain("The Zoning Farm List is filled by hand");
+  });
+
+  it("lists the companies tab and says what is not researched yet", async () => {
+    as("branch_admin");
+    const html = await renderPage(Pipeline, sp({ tab: "companies" }));
+    expect(callsMatching(/from playbook_companies/)[0][1]).toEqual(["prd"]);
+    expect(html).toContain("Test Applicant Pty Ltd");
+    expect(html).toContain("Not yet researched");
+  });
+
+  it("lists what the sheet does not hold, with the reason", async () => {
+    as("branch_admin");
+    const html = await renderPage(Pipeline, sp({ tab: "gaps" }));
+    expect(html).toContain("Data not in the sheet");
+    expect(html).toContain("The sheet has no priority column");
+    expect(html).toContain("no coordinates");
   });
 });
 
