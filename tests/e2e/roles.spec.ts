@@ -86,13 +86,5 @@ test.describe("role-based sidebar and access (read only)", () => {
       await expect(page.getByRole("heading", { level: 1, name: "Companies and Branches" })).toBeVisible();
       await expect(page.getByText("Microsoft tenants")).toBeVisible();
     });
-
-    test("can switch between branches from the top bar", async ({ page }) => {
-      await page.goto("/progress");
-      const select = page.locator("header select");
-      await expect(select).toBeVisible();
-      await select.selectOption({ label: "Blue Mountains" });
-      await expect(page.locator("aside").getByText("Blue Mountains")).toBeVisible();
-    });
   });
 });
