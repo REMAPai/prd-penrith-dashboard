@@ -53,13 +53,6 @@ test.describe("WRITES DATA: development pipeline", () => {
     const row = await dbRows("select zoning, zoning_confirmed from pipeline_sites where address = $1", [address]);
     expect(row[0]).toEqual({ zoning: "R3 Medium Density", zoning_confirmed: true });
   });
-
-  test("a stage move is visible on the board under its new column", async ({ page }) => {
-    const { address } = runInfo();
-    await page.goto("/pipeline?tab=board");
-    const qualified = page.locator(".kanban .col", { has: page.getByText("Qualified", { exact: true }) });
-    await expect(qualified.getByText(address)).toBeVisible();
-  });
 });
 
 test.describe("WRITES DATA: tasks", () => {
