@@ -319,6 +319,38 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('class="hot"');
   });
 
+  it("searches buyers by name, property, source or agent", async () => {
+    withLiveLog();
+    as("agent");
+    const hit = await renderPage(Buyer, sp({ day: "2026-10-05", q: "test st" }));
+    expect(hit).toContain("Test Buyer");
+    expect(hit).toContain('value="test st"');
+    const miss = await renderPage(Buyer, sp({ day: "2026-10-05", q: "zzz" }));
+    expect(miss).not.toContain("Test Buyer");
+    expect(miss).toContain("No buyers match your filters.");
+  });
+
+  it("filters by status, keeping the search text in the status links", async () => {
+    withLiveLog();
+    as("agent");
+    const handed = await renderPage(Buyer, sp({ day: "2026-10-05", status: "handed" }));
+    expect(handed).not.toContain("Test Buyer");
+    expect(handed).toContain("No buyers match your filters.");
+    const replying = await renderPage(Buyer, sp({ day: "2026-10-05", status: "replying", q: "test" }));
+    expect(replying).toContain("Test Buyer");
+    expect(replying).toContain("status=handed&amp;q=test");
+  });
+
+  it("filters by agent and lists the agents named that day", async () => {
+    withLiveLog();
+    as("agent");
+    const all = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    expect(all).toContain("All agents");
+    expect(all).toContain('value="Test Agent"');
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05", agent: "Test Agent" }))).toContain("Test Buyer");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05", agent: "Someone Else" }))).not.toContain("Test Buyer");
+  });
+
   it("hides everything that is not live in Live only mode", async () => {
     as("agent");
     jar.set("liveOnly", "1");
