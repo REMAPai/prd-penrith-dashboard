@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initials } from "@/lib/buyer-display";
+import { initials, titleName } from "@/lib/buyer-display";
 
 describe("initials", () => {
   it("takes the first letters of the first two words, in capitals", () => {
@@ -16,5 +16,17 @@ describe("initials", () => {
     expect(initials("")).toBe("?");
     expect(initials("   ")).toBe("?");
     expect(initials("123 ...")).toBe("?");
+  });
+});
+
+describe("titleName", () => {
+  it("capitalises each word of a lowercase name", () => {
+    expect(titleName("thomas latty")).toBe("Thomas Latty");
+    expect(titleName("mary-jane o'brien")).toBe("Mary-Jane O'Brien");
+  });
+  it("leaves names that are already capitalised, and empty names, alone", () => {
+    expect(titleName("Thomas Latty")).toBe("Thomas Latty");
+    expect(titleName("McDonald")).toBe("McDonald");
+    expect(titleName("")).toBe("");
   });
 });
