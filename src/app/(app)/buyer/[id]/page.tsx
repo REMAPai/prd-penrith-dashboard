@@ -5,7 +5,8 @@ import { access } from "@/lib/ctx";
 import { getConversations, mask } from "@/lib/data/conversations";
 import { Badge, Denied, Notice } from "@/components/ui";
 import { audit } from "@/lib/session";
-import { canRevealPii } from "@/lib/roles";
+import { canMarkContacted, canRevealPii } from "@/lib/roles";
+import { markContacted } from "./actions";
 import { dayLabel, sydneyDay, timeLabel } from "@/lib/buyer-days";
 
 const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : "grey");
@@ -62,10 +63,18 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
         <Field label="Source">{c.source || "Not captured"}</Field>
         <Field label="Inspection">{INSP[c.inspection] ?? c.inspection}</Field>
         <Field label="Handled by">
-          {c.readyForAgent ? <>{c.agent || "Agent not named"}{c.agentEmail && <div className="soft" style={{ fontSize: 13, fontWeight: 400 }}>{c.agentEmail}</div>}</> : "Not handed over yet"}
+          {c.readyForAgent ? <>{c.agent || "Agent not named"}{c.handoffStatus === "done" && <div style={{ marginTop: 4 }}><Badge tone="live">Contacted</Badge></div>}{c.agentEmail && <div className="soft" style={{ fontSize: 13, fontWeight: 400 }}>{c.agentEmail}</div>}</> : "Not handed over yet"}
         </Field>
         {c.readyForAgent && <Field label="Why handed over">{c.whyReady || "Actionable signal"}</Field>}
       </div>
+      {c.readyForAgent && c.handoffStatus !== "done" && canMarkContacted(ctx.session.role) && (
+        <form action={markContacted}>
+          <input type="hidden" name="id" value={c.conversationId} />
+          <button className="btn">Mark contacted</button>{" "}
+          <span className="soft" style={{ fontSize: 12 }}>Use this once the agent has spoken to the buyer. It is recorded in the audit log.</span>
+        </form>
+      )}
+
       <div className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
         {c.turns.length === 0 && <div className="soft">No messages yet.</div>}
         {c.turns.map((t, i) => (
