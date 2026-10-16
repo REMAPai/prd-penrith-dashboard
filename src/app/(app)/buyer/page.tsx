@@ -84,6 +84,23 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         ))}
       </div>
 
+      <form method="get" action="/buyer" style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="search">
+        <input type="hidden" name="day" value={day} />
+        <input type="hidden" name="status" value={status} />
+        <input type="search" name="q" defaultValue={q} placeholder="Search buyer, property, source or agent" aria-label="Search buyers" style={{ flex: "1 1 260px", maxWidth: 420 }} />
+        <select name="agent" defaultValue={agent} aria-label="Filter by agent" style={{ width: "auto", maxWidth: 220 }}>
+          <option value="">All agents</option>
+          {agents.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <button className="btn">Search</button>
+        {(q || status !== "all" || agent) && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
+      </form>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {([["all", "All"], ["handed", "Handed to agent"], ["replying", "Assistant replying"]] as [BuyerStatus, string][]).map(([k, label]) => (
+          <Link key={k} className={`chip${status === k ? " on" : ""}`} aria-current={status === k ? "true" : undefined} href={`/buyer?day=${day}&status=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`}>{label}</Link>
+        ))}
+      </div>
+
       <Card status={res.status} title={day === "all" ? "All Data" : dayLabel(day)} sub={`${plural(rows.length, "buyer")} · ${plural(replies, "reply").replace("replys", "replies")} · ${handed} handed to an agent. Open a name to see every message and reply.`} source={res.source}>
         <div style={{ overflow: "auto" }}>
           <table className="t bz" style={{ minWidth: 760 }}>
