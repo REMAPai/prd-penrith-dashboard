@@ -390,6 +390,18 @@ describe("buyer page: masking and reveal", () => {
     }
   });
 
+  it("shows the header band with the title, the data status and the search inside it", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    const hero = html.slice(html.indexOf('class="bz-hero"'), html.indexOf("</section>"));
+    expect(hero).toContain("Buyer Sequencing");
+    expect(hero).toContain("b-live");
+    expect(hero).toContain('role="search"');
+    expect(hero).toContain('name="q"');
+    expect(hero).toContain('name="agent"');
+  });
+
   it("puts the Buyer Sequencing page on the Bronze surface", async () => {
     withLiveLog();
     as("agent");
