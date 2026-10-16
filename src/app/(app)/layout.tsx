@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCtx } from "@/lib/ctx";
 import { PAGES, ROLE_LABEL, canSee } from "@/lib/roles";
 import { signOut } from "../login/actions";
-import { LiveToggle, ScopeSelect } from "@/components/TopControls";
+import { LiveToggle } from "@/components/TopControls";
 import { NavLink } from "@/components/NavLink";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
       <main style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         <header className="topbar">
-          <ScopeSelect branches={ctx.branches.map((b) => ({ id: b.id, name: b.name }))} current={branch?.id ?? ""} />
           <div style={{ flex: 1 }} />
           <LiveToggle liveOnly={ctx.liveOnly} />
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

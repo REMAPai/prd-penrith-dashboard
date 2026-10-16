@@ -62,11 +62,11 @@ describe("app layout", () => {
     expect((p.match(/class="item/g) ?? []).length).toBe(PAGES.length);
   });
 
-  it("passes the live-only flag and scope branches to the top bar", async () => {
+  it("passes the live-only flag to the top bar and shows no branch dropdown", async () => {
     ctxMock.getCtx.mockResolvedValue(makeCtx("platform_admin", { liveOnly: true }));
     const html = await renderPage(AppLayout as never, { children: kids });
     expect(html).toContain('data-live="true"');
-    expect(html).toContain('data-n="4"');
+    expect(html).not.toContain('id="scope"');
   });
 });
 
