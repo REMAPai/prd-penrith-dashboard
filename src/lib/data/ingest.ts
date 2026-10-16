@@ -32,6 +32,7 @@ export const turnSchema = z.object({
   slaDueAt: z.string().datetime({ offset: true }).nullable().default(null),
   afterHours: z.boolean().default(false),
   blocked: str,
+  optedOut: z.boolean().default(false),
   turn: z.number().int().min(1).max(500),
   buyerMessage: str,
   assistantReply: str,

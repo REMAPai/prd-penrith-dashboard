@@ -104,7 +104,15 @@ describe("ingest route: turn", () => {
     const convo = poolClient.query.mock.calls[1];
     expect(String(convo[0])).toContain("agent_email = excluded.agent_email");
     expect(String(convo[0])).toContain("had_property_record = excluded.had_property_record");
-    expect(convo[1]!.slice(-2)).toEqual(["thomas@example.test", "yes"]);
+    expect(convo[1]!.slice(-3, -1)).toEqual(["thomas@example.test", "yes"]);
+  });
+
+  it("stores opted_out and never clears it once a buyer has opted out", async () => {
+    configured();
+    await post("turn", { ...turn, optedOut: true });
+    const convo = poolClient.query.mock.calls[1];
+    expect(String(convo[0])).toContain("opted_out = buyer_conversations.opted_out or excluded.opted_out");
+    expect(convo[1]!.slice(-1)).toEqual([true]);
   });
 
   it("never lets a re-sent turn re-open a finished handoff", async () => {
