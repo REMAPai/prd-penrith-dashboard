@@ -390,6 +390,17 @@ describe("buyer page: masking and reveal", () => {
     }
   });
 
+  it("shows four summary cards for the open tab: buyers, replies, handed to agent and hot buyers", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    const stats = html.slice(html.indexOf('class="bz-stats"'), html.indexOf('class="tabs"'));
+    expect(stats).toContain("Buyers</div><div class=\"v\">1<");
+    expect(stats).toContain("Replies sent</div><div class=\"v\">1<");
+    expect(stats).toContain("Handed to agent</div><div class=\"v\">0<");
+    expect(stats).toContain("Hot buyers</div><div class=\"v\">1<");
+  });
+
   it("shows the header band with the title, the data status and the search inside it", async () => {
     withLiveLog();
     as("agent");

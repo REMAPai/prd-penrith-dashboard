@@ -31,6 +31,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
   const agents = agentsOf(dayRows);
   const handed = rows.filter(({ c }) => c.readyForAgent).length;
   const replies = rows.reduce((n, { c }) => n + (day === "all" ? c.turns : turnsOnDay(c, day)).filter((x) => x.assistant).length, 0);
+  const hot = rows.filter(({ c }) => c.temperature === "Hot").length;
   const { shown, older } = splitDays(days, day);
   const tabs: [string, string][] = [...shown.map((d): [string, string] => [d, d === days[0] ? `${dayLabel(d)} (latest)` : dayLabel(d)]), ["all", "All Data"]];
 
@@ -55,6 +56,12 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
       </section>
       {res.note && <Notice>{res.note}</Notice>}
       {live && !(res as { sendingLive?: boolean }).sendingLive && <Notice>Outbound sending is held. The assistant is working on real enquiries; replies are not being sent to buyers yet.</Notice>}
+      <div className="bz-stats" aria-label="Summary for this tab">
+        <div className="bz-stat"><div className="l">Buyers</div><div className="v">{rows.length}</div></div>
+        <div className="bz-stat"><div className="l">Replies sent</div><div className="v">{replies}</div></div>
+        <div className="bz-stat ok"><div className="l">Handed to agent</div><div className="v">{handed}</div></div>
+        <div className="bz-stat hot"><div className="l">Hot buyers</div><div className="v">{hot}</div></div>
+      </div>
       <Tabs base="/buyer" param="day" current={day} tabs={tabs} />
       {older.length > 0 && (
         <form method="get" action="/buyer" style={{ display: "flex", gap: 8, alignItems: "center" }}>
