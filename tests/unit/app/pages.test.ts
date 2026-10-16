@@ -349,6 +349,12 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "all" }))).toContain("1 buyer · 1 reply · 0 handed to an agent");
   });
 
+  it("uses the Bronze table style for the buyer list", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('class="t bz"');
+  });
+
   it("marks Hot buyers in the list so they stand out", async () => {
     withLiveLog();
     as("agent");
