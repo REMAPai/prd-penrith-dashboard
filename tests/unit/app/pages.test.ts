@@ -366,6 +366,12 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-tag">Test</span>');
   });
 
+  it("shows the buyer type as a Bronze pill", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill hot">Hot</span>');
+  });
+
   it("uses the Bronze table style for the buyer list", async () => {
     withLiveLog();
     as("agent");
