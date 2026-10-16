@@ -70,7 +70,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
 
       <Card status={res.status} title={day === "all" ? "All Data" : dayLabel(day)} sub={`${plural(rows.length, "buyer")} · ${plural(replies, "reply").replace("replys", "replies")} · ${handed} handed to an agent. Open a name to see every message and reply.`} source={res.source}>
         <div style={{ overflow: "auto" }}>
-          <table className="t" style={{ minWidth: 760 }}>
+          <table className="t bz" style={{ minWidth: 760 }}>
             <thead><tr><th>{day === "all" ? "Last message" : "First message"}</th><th>Buyer</th><th>Property</th><th>Source</th><th>Buyer type</th><th>Inspection</th><th>Status</th></tr></thead>
             <tbody>
               {rows.slice(0, 500).map(({ c, when }) => (

@@ -126,6 +126,11 @@ table.t th { text-align: left; color: var(--text-soft); font-size: 12px; font-we
 table.t td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
 table.t tbody tr:hover { background: var(--surface-soft); }
 table.t tr.hot td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+table.t.bz thead th { background: var(--bz-head); color: var(--bz-head-ink); font-size: 11px; font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; padding: 11px 12px; }
+table.t.bz td { border-top: 1px solid var(--bz-line); padding: 13px 12px; }
+table.t.bz tbody tr:nth-child(even) { background: var(--bz-stripe); }
+table.t.bz tbody tr:hover { background: var(--bz-hover); }
+table.t.bz tr.hot td:first-child { box-shadow: inset 3px 0 0 var(--bz-hot-edge); }
 table.t tr.click { cursor: pointer; }
 
 .side { width: 232px; flex: none; background: #fff; border-right: 1px solid var(--border); padding: 18px 12px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 0; height: 100vh; overflow: auto; }
