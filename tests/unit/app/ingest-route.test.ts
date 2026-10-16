@@ -98,6 +98,15 @@ describe("ingest route: turn", () => {
     expect(String(poolClient.query.mock.calls[2][0])).toContain("on conflict (conversation_id, turn) do update");
   });
 
+  it("stores the agent email and the property record flag, and updates them on a later turn", async () => {
+    configured();
+    await post("turn", { ...turn, agentEmail: "thomas@example.test", hadPropertyRecord: "yes" });
+    const convo = poolClient.query.mock.calls[1];
+    expect(String(convo[0])).toContain("agent_email = excluded.agent_email");
+    expect(String(convo[0])).toContain("had_property_record = excluded.had_property_record");
+    expect(convo[1]!.slice(-2)).toEqual(["thomas@example.test", "yes"]);
+  });
+
   it("never lets a re-sent turn re-open a finished handoff", async () => {
     configured();
     await post("turn", turn);
