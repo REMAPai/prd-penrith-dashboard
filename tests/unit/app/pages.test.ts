@@ -351,6 +351,12 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "2026-10-05", agent: "Someone Else" }))).not.toContain("Test Buyer");
   });
 
+  it("explains the empty state when there are no buyers at all", async () => {
+    as("agent");
+    const html = await renderPage(Buyer, sp());
+    expect(html).toContain("No buyers yet. Each enquiry appears here as soon as the assistant replies to it.");
+  });
+
   it("hides everything that is not live in Live only mode", async () => {
     as("agent");
     jar.set("liveOnly", "1");
