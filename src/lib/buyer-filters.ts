@@ -1,11 +1,11 @@
 import type { Conversation } from "@/lib/data/types";
 
-export type BuyerStatus = "all" | "handed" | "replying";
+export type BuyerStatus = "all" | "handed" | "replying" | "optedout";
 export type BuyerFilters = { q: string; status?: BuyerStatus; agent?: string };
 
-export const parseStatus = (v: string | undefined): BuyerStatus => (v === "handed" || v === "replying" ? v : "all");
+export const parseStatus = (v: string | undefined): BuyerStatus => (v === "handed" || v === "replying" || v === "optedout" ? v : "all");
 
-export const matchesStatus = (c: Conversation, status: BuyerStatus): boolean => status === "all" || (status === "handed" ? c.readyForAgent : !c.readyForAgent);
+export const matchesStatus = (c: Conversation, status: BuyerStatus): boolean => status === "all" || (status === "optedout" ? c.optedOut : status === "handed" ? c.readyForAgent && !c.optedOut : !c.readyForAgent && !c.optedOut);
 
 /** Plain-text search over the fields a person would type: buyer, property, source and agent. */
 export function matchesSearch(c: Conversation, q: string): boolean {

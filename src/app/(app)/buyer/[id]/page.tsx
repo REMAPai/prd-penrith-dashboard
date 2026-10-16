@@ -51,9 +51,10 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
       <div><Link className="btn sm" href={`/buyer?day=${backDay}`}>Back to {backDay === "all" ? "All Data" : dayLabel(backDay)}</Link></div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>{c.buyer || "Unknown buyer"} <span className="soft" style={{ fontSize: 14, fontWeight: 400 }}>· {c.property}</span></h1>
-        <Badge tone={tone(c.temperature)}>{c.temperature}</Badge>
+        <span style={{ display: "flex", gap: 6 }}>{c.optedOut && <Badge tone="red">Opted out</Badge>}<Badge tone={tone(c.temperature)}>{c.temperature}</Badge></span>
       </div>
       {res.note && <Notice>{res.note}</Notice>}
+      {c.optedOut && <Notice>This buyer replied STOP. No more messages are sent to them.</Notice>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 10 }}>
         <Field label="Phone" eye={c.phone ? eye : null}>{revealed ? c.phone : mask(c.phone) || "Not captured"}</Field>

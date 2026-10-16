@@ -63,7 +63,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         {(q || status !== "all" || agent) && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
       </form>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {([["all", "All"], ["handed", "Handed to agent"], ["replying", "Assistant replying"]] as [BuyerStatus, string][]).map(([k, label]) => (
+        {([["all", "All"], ["handed", "Handed to agent"], ["replying", "Assistant replying"], ["optedout", "Opted out"]] as [BuyerStatus, string][]).map(([k, label]) => (
           <Link key={k} className={`chip${status === k ? " on" : ""}`} aria-current={status === k ? "true" : undefined} href={`/buyer?day=${day}&status=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`}>{label}</Link>
         ))}
       </div>
@@ -81,7 +81,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
                   <td className="soft">{c.source}</td>
                   <td><Badge tone={tone(c.temperature)}>{c.temperature}</Badge></td>
                   <td className="soft">{INSP[c.inspection] ?? c.inspection}</td>
-                  <td>{c.readyForAgent ? (c.handoffStatus === "done" ? <Badge tone="live">Contacted by {c.agent || "agent"}</Badge> : <Badge tone="done">With {c.agent || "agent"}</Badge>) : <Badge tone="grey">Assistant replying</Badge>}</td>
+                  <td>{c.optedOut ? <Badge tone="red">Opted out</Badge> : c.readyForAgent ? (c.handoffStatus === "done" ? <Badge tone="live">Contacted by {c.agent || "agent"}</Badge> : <Badge tone="done">With {c.agent || "agent"}</Badge>) : <Badge tone="grey">Assistant replying</Badge>}</td>
                 </tr>
               ))}
             </tbody>

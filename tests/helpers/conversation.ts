@@ -12,6 +12,7 @@ export function convo(over: Partial<Conversation> = {}, turns: Turn[] = [turn("I
     source: "REA",
     agent: "",
     agentEmail: "",
+    optedOut: false,
     hadPropertyRecord: "",
     temperature: "New",
     buyerType: "",

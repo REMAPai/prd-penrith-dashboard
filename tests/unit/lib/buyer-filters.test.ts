@@ -62,3 +62,15 @@ describe("agent filter", () => {
     expect(agentsOf([...rows, { c: t1 }])).toEqual(["Sam Reed", "Thomas Latty"]);
   });
 });
+
+describe("opted-out status", () => {
+  const out = convo({ conversationId: "o", optedOut: true, readyForAgent: false });
+  const handed = convo({ conversationId: "h", readyForAgent: true });
+  it("has its own filter and is excluded from the replying and handed lists", () => {
+    expect(matchesStatus(out, "optedout")).toBe(true);
+    expect(matchesStatus(handed, "optedout")).toBe(false);
+    expect(matchesStatus(out, "replying")).toBe(false);
+    expect(matchesStatus(convo({ optedOut: true, readyForAgent: true }), "handed")).toBe(false);
+    expect(parseStatus("optedout")).toBe("optedout");
+  });
+});
