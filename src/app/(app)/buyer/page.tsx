@@ -2,9 +2,10 @@ import Link from "next/link";
 import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
 import { Badge, Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
-import { conversationDays, conversationsOnDay, dayLabel, timeLabel } from "@/lib/buyer-days";
+import { conversationDays, conversationsOnDay, dayLabel, timeLabel, turnsOnDay } from "@/lib/buyer-days";
 import type { Conversation } from "@/lib/data/types";
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : "grey");
 const INSP: Record<string, string> = { not_discussed: "Not discussed", offered_not_answered: "Offered", asked_about_it: "Buyer asked", booked: "Booked" };
 
@@ -23,6 +24,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
       ? res.data.slice().sort((a, b) => b.lastAt.localeCompare(a.lastAt)).map((c) => ({ c, when: fmtDate(c.lastAt) }))
       : conversationsOnDay(res.data, day).map(({ c, first }) => ({ c, when: timeLabel(first) }));
   const handed = rows.filter(({ c }) => c.readyForAgent).length;
+  const replies = rows.reduce((n, { c }) => n + (day === "all" ? c.turns : turnsOnDay(c, day)).filter((x) => x.assistant).length, 0);
   const tabs: [string, string][] = [...days.map((d, i): [string, string] => [d, i === 0 ? `${dayLabel(d)} (latest)` : dayLabel(d)]), ["all", "All Data"]];
 
   return (
@@ -32,7 +34,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
       {live && !(res as { sendingLive?: boolean }).sendingLive && <Notice>Outbound sending is held. The assistant is working on real enquiries; replies are not being sent to buyers yet.</Notice>}
       <Tabs base="/buyer" param="day" current={day} tabs={tabs} />
 
-      <Card status={res.status} title={day === "all" ? "All Data" : dayLabel(day)} sub={`${rows.length} ${rows.length === 1 ? "buyer" : "buyers"} · ${handed} handed to an agent. Open a name to see every message and reply.`} source={res.source}>
+      <Card status={res.status} title={day === "all" ? "All Data" : dayLabel(day)} sub={`${plural(rows.length, "buyer")} · ${plural(replies, "reply").replace("replys", "replies")} · ${handed} handed to an agent. Open a name to see every message and reply.`} source={res.source}>
         <div style={{ overflow: "auto" }}>
           <table className="t" style={{ minWidth: 760 }}>
             <thead><tr><th>{day === "all" ? "Last message" : "First message"}</th><th>Buyer</th><th>Property</th><th>Source</th><th>Buyer type</th><th>Inspection</th><th>Status</th></tr></thead>

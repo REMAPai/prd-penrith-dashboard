@@ -306,6 +306,13 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "2026-10-04" }))).toContain("Test Buyer");
   });
 
+  it("shows the buyers, replies and handed-over counts above each tab", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain("1 buyer · 1 reply · 0 handed to an agent");
+    expect(await renderPage(Buyer, sp({ day: "all" }))).toContain("1 buyer · 1 reply · 0 handed to an agent");
+  });
+
   it("hides everything that is not live in Live only mode", async () => {
     as("agent");
     jar.set("liveOnly", "1");
