@@ -294,3 +294,10 @@ main:has(.bz-page) { background: var(--bz-page); }
 
 /* Legibility: the notice on the Bronze surface. */
 .bz-page .notice { background: #f6e7c0; color: #4d3200; border: 1px solid #e0c26e; border-left: 4px solid var(--bz-brass); font-size: 14px; font-weight: 500; line-height: 1.45; padding: 12px 16px; }
+
+/* Legibility: day tabs and filter chips. */
+.bz-tabs a { color: #43341b; font-size: 14px; font-weight: 500; padding: 8px 18px; }
+.bz-tabs a.on { font-weight: 600; }
+.bz-page .chip { font-size: 13px; padding: 6px 14px; color: #3a2d17; }
+.bz-page .chip.on { font-weight: 600; }
+.bz-search input[type="search"], .bz-search select { font-size: 14px; }
