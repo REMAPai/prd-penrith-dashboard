@@ -3,14 +3,14 @@ import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
 import { Badge, Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
 import { conversationDays, conversationsOnDay, dayLabel, timeLabel, turnsOnDay } from "@/lib/buyer-days";
-import { applyFilters } from "@/lib/buyer-filters";
+import { applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
 import type { Conversation } from "@/lib/data/types";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : "grey");
 const INSP: Record<string, string> = { not_discussed: "Not discussed", offered_not_answered: "Offered", asked_about_it: "Buyer asked", booked: "Booked" };
 
-export default async function Buyer({ searchParams }: { searchParams: Promise<{ day?: string; q?: string }> }) {
+export default async function Buyer({ searchParams }: { searchParams: Promise<{ day?: string; q?: string; status?: string }> }) {
   const ctx = await access("buyer");
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
@@ -21,11 +21,12 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
   const live = res.status === "live";
 
   const q = (sp.q ?? "").slice(0, 80);
+  const status = parseStatus(sp.status);
   const dayRows: { c: Conversation; when: string }[] =
     day === "all"
       ? res.data.slice().sort((a, b) => b.lastAt.localeCompare(a.lastAt)).map((c) => ({ c, when: fmtDate(c.lastAt) }))
       : conversationsOnDay(res.data, day).map(({ c, first }) => ({ c, when: timeLabel(first) }));
-  const rows = applyFilters(dayRows, { q });
+  const rows = applyFilters(dayRows, { q, status });
   const handed = rows.filter(({ c }) => c.readyForAgent).length;
   const replies = rows.reduce((n, { c }) => n + (day === "all" ? c.turns : turnsOnDay(c, day)).filter((x) => x.assistant).length, 0);
   const tabs: [string, string][] = [...days.map((d, i): [string, string] => [d, i === 0 ? `${dayLabel(d)} (latest)` : dayLabel(d)]), ["all", "All Data"]];
@@ -39,10 +40,16 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
 
       <form method="get" action="/buyer" style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="search">
         <input type="hidden" name="day" value={day} />
+        <input type="hidden" name="status" value={status} />
         <input type="search" name="q" defaultValue={q} placeholder="Search buyer, property, source or agent" aria-label="Search buyers" style={{ flex: "1 1 260px", maxWidth: 420 }} />
         <button className="btn">Search</button>
-        {q && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
+        {(q || status !== "all") && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
       </form>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {([["all", "All"], ["handed", "Handed to agent"], ["replying", "Assistant replying"]] as [BuyerStatus, string][]).map(([k, label]) => (
+          <Link key={k} className={`chip${status === k ? " on" : ""}`} aria-current={status === k ? "true" : undefined} href={`/buyer?day=${day}&status=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>{label}</Link>
+        ))}
+      </div>
 
       <Card status={res.status} title={day === "all" ? "All Data" : dayLabel(day)} sub={`${plural(rows.length, "buyer")} · ${plural(replies, "reply").replace("replys", "replies")} · ${handed} handed to an agent. Open a name to see every message and reply.`} source={res.source}>
         <div style={{ overflow: "auto" }}>
@@ -62,7 +69,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && <div className="soft" style={{ padding: 16 }}>{q ? "No buyers match your search." : "No buyers for this day."}</div>}
+          {rows.length === 0 && <div className="soft" style={{ padding: 16 }}>{q || status !== "all" ? "No buyers match your filters." : "No buyers for this day."}</div>}
         </div>
       </Card>
     </>
