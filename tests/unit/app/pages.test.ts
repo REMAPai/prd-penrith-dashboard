@@ -203,7 +203,7 @@ describe("Development Playbook page", () => {
 
 const open = "live-pen-0";
 const liveConversation: Conversation = {
-  conversationId: open, buyer: "Test Buyer", phone: "0400 000 000", email: "buyer@example.test", property: "1 Test St", source: "Test", agent: "Test Agent", agentEmail: "agent@example.test", hadPropertyRecord: "yes",
+  conversationId: open, buyer: "Test Buyer", phone: "0400 000 000", email: "buyer@example.test", property: "1 Test St", source: "Test", agent: "Test Agent", agentEmail: "agent@example.test", optedOut: false, hadPropertyRecord: "yes",
   temperature: "Hot", buyerType: "Owner occupier", financeStatus: "pre_approved", needsToSellFirst: "no", timeframe: "now", inspection: "not_discussed",
   wantsContract: false, consent: "yes", readyForAgent: false, whyReady: "", afterHours: false, startedAt: "2026-10-05T00:00:00Z", lastAt: "2026-10-05T00:05:00Z",
   date: "2026-10-05", turns: [{ at: "2026-10-05T00:00:00Z", buyer: "Hi", assistant: "Hello", replyAt: "2026-10-05T00:01:00Z" }], handoffStatus: "none", slaDueAt: null,
@@ -293,6 +293,21 @@ describe("buyer page: masking and reveal", () => {
     } finally {
       liveConversation.readyForAgent = false;
       liveConversation.handoffStatus = "none";
+    }
+  });
+
+  it("shows opted-out buyers clearly in the list and on the buyer page", async () => {
+    withLiveLog();
+    as("agent");
+    liveConversation.optedOut = true;
+    try {
+      const list = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+      expect(list).toContain("Opted out");
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05", status: "optedout" }))).toContain("Test Buyer");
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05", status: "replying" }))).not.toContain("Test Buyer");
+      expect(await renderPage(BuyerDetail, detail())).toContain("This buyer replied STOP");
+    } finally {
+      liveConversation.optedOut = false;
     }
   });
 
