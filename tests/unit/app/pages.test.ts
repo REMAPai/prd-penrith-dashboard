@@ -372,6 +372,24 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill hot">Hot</span>');
   });
 
+  it("shows the status as Bronze pills: assistant replying, with agent, contacted and opted out", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill info">Assistant replying</span>');
+    liveConversation.readyForAgent = true;
+    try {
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill ok">With Test Agent</span>');
+      liveConversation.handoffStatus = "done";
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill ok">Contacted by Test Agent</span>');
+      liveConversation.optedOut = true;
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill hot">Opted out</span>');
+    } finally {
+      liveConversation.readyForAgent = false;
+      liveConversation.handoffStatus = "none";
+      liveConversation.optedOut = false;
+    }
+  });
+
   it("uses the Bronze table style for the buyer list", async () => {
     withLiveLog();
     as("agent");

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
-import { Badge, Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
+import { Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
 import { conversationDays, conversationsOnDay, dayLabel, splitDays, timeLabel, turnsOnDay } from "@/lib/buyer-days";
 import { initials } from "@/lib/buyer-display";
 import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
@@ -88,7 +88,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
                   <td>{c.source && <span className="bz-tag">{c.source}</span>}</td>
                   <td><span className={`bz-pill ${c.temperature.toLowerCase()}`}>{c.temperature}</span></td>
                   <td className="soft">{INSP[c.inspection] ?? c.inspection}</td>
-                  <td>{c.optedOut ? <Badge tone="red">Opted out</Badge> : c.readyForAgent ? (c.handoffStatus === "done" ? <Badge tone="live">Contacted by {c.agent || "agent"}</Badge> : <Badge tone="done">With {c.agent || "agent"}</Badge>) : <Badge tone="grey">Assistant replying</Badge>}</td>
+                  <td>{c.optedOut ? <span className="bz-pill hot">Opted out</span> : c.readyForAgent ? (c.handoffStatus === "done" ? <span className="bz-pill ok">Contacted by {c.agent || "agent"}</span> : <span className="bz-pill ok">With {c.agent || "agent"}</span>) : <span className="bz-pill info">Assistant replying</span>}</td>
                 </tr>
               ))}
             </tbody>
