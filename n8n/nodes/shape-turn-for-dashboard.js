@@ -12,6 +12,8 @@ return {
     property: String(j.property || ''),
     source: String(j.source || ''),
     agent: String(j.agent || ''),
+    agentEmail: String(j.agentEmail || ''),
+    hadPropertyRecord: (j.hadPropertyRecord === true || String(j.hadPropertyRecord).toLowerCase() === 'true') ? 'yes' : ((j.hadPropertyRecord === false || String(j.hadPropertyRecord).toLowerCase() === 'false') ? 'no' : ''),
     temperature: ['Hot', 'Warm', 'New'].includes(j.temperature) ? j.temperature : 'New',
     buyerType: String(j.buyerType || ''),
     financeStatus: String(j.financeStatus || ''),
