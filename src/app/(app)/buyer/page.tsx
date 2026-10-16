@@ -86,7 +86,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
                     </div>
                   </td>
                   <td>{c.property}</td>
-                  <td className="soft">{c.source}</td>
+                  <td>{c.source && <span className="bz-tag">{c.source}</span>}</td>
                   <td><Badge tone={tone(c.temperature)}>{c.temperature}</Badge></td>
                   <td className="soft">{INSP[c.inspection] ?? c.inspection}</td>
                   <td>{c.optedOut ? <Badge tone="red">Opted out</Badge> : c.readyForAgent ? (c.handoffStatus === "done" ? <Badge tone="live">Contacted by {c.agent || "agent"}</Badge> : <Badge tone="done">With {c.agent || "agent"}</Badge>) : <Badge tone="grey">Assistant replying</Badge>}</td>
