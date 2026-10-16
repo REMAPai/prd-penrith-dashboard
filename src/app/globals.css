@@ -12,6 +12,13 @@
   --brand-ink: #b3141b;
   --chat-reply: #e6f1fb;
   --chat-reply-ink: #0c447c;
+    --bz-page: #e7decd;
+  --bz-ink: #2a2118;
+  --bz-card: #fbf7ee;
+  --bz-card-line: #ddd0b8;
+  --bz-espresso: #2b2118;
+  --bz-copper: #a5612a;
+  --bz-brass: #b8893a;
   /* Bronze palette. Used only by the Buyer Sequencing list (class names starting bz-). */
   --bz-head: #efe5d0;
   --bz-head-ink: #6b5b3a;
@@ -202,3 +209,8 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 @keyframes skel { 0% { opacity: 0.55; } 50% { opacity: 1; } 100% { opacity: 0.55; } }
 .skel { background: var(--surface-soft); border-radius: 8px; animation: skel 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+/* Buyer Sequencing page surface (Bronze). Scoped to .bz-page so no other page changes. */
+.bz-page { background: var(--bz-page); color: var(--bz-ink); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: inset 0 1px 3px rgba(60, 40, 15, 0.12); }
+.bz-page .card { background: var(--bz-card); border: 1px solid var(--bz-card-line); border-radius: 14px; box-shadow: 0 1px 2px rgba(60, 40, 15, 0.08), 0 10px 22px rgba(60, 40, 15, 0.08); }
+.bz-page .sub, .bz-page .soft { color: var(--bz-ink-soft); }

@@ -390,6 +390,12 @@ describe("buyer page: masking and reveal", () => {
     }
   });
 
+  it("puts the Buyer Sequencing page on the Bronze surface", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('class="bz-page"');
+  });
+
   it("uses the Bronze table style for the buyer list", async () => {
     withLiveLog();
     as("agent");
