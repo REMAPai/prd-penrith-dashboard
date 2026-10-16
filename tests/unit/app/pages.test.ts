@@ -327,7 +327,18 @@ describe("buyer page: masking and reveal", () => {
     expect(hit).toContain('value="test st"');
     const miss = await renderPage(Buyer, sp({ day: "2026-10-05", q: "zzz" }));
     expect(miss).not.toContain("Test Buyer");
-    expect(miss).toContain("No buyers match your search.");
+    expect(miss).toContain("No buyers match your filters.");
+  });
+
+  it("filters by status, keeping the search text in the status links", async () => {
+    withLiveLog();
+    as("agent");
+    const handed = await renderPage(Buyer, sp({ day: "2026-10-05", status: "handed" }));
+    expect(handed).not.toContain("Test Buyer");
+    expect(handed).toContain("No buyers match your filters.");
+    const replying = await renderPage(Buyer, sp({ day: "2026-10-05", status: "replying", q: "test" }));
+    expect(replying).toContain("Test Buyer");
+    expect(replying).toContain("status=handed&amp;q=test");
   });
 
   it("hides everything that is not live in Live only mode", async () => {
