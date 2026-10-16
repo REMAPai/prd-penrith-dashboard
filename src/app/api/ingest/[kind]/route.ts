@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { pool } from "@/lib/db";
-import { CLAIM_WINDOW_MINUTES, claimSchema, msgHash, turnSchema } from "@/lib/data/ingest";
+import { CLAIM_WINDOW_MINUTES, claimSchema, msgHash, optoutSchema, turnSchema } from "@/lib/data/ingest";
 import { COUNCIL_BRANCH, playbookSchema } from "@/lib/playbook";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +76,33 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ kind: stri
       client.release();
     }
     return NextResponse.json({ ok: true });
+  }
+
+  if (kind === "optout") {
+    const p = optoutSchema.safeParse(body);
+    if (!p.success) return NextResponse.json({ error: "invalid body" }, { status: 400 });
+    const o = p.data;
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      // Only flags and records a conversation that already exists; the buyer's other captured details are left alone.
+      const found = await client.query(`update buyer_conversations set opted_out = true, last_at = $2 where conversation_id = $1`, [o.conversationId, o.at]);
+      if (found.rowCount) {
+        await client.query(
+          `insert into buyer_turns (conversation_id, turn, buyer_message, assistant_reply, buyer_at, reply_at)
+           select $1, coalesce(max(turn), 0) + 1, $2, '', $3, null from buyer_turns where conversation_id = $1`,
+          [o.conversationId, o.message, o.at],
+        );
+      }
+      await client.query("commit");
+      return NextResponse.json({ ok: true, updated: Boolean(found.rowCount) });
+    } catch (e) {
+      await client.query("rollback");
+      console.error("ingest optout failed", e instanceof Error ? e.message : "error");
+      return NextResponse.json({ error: "store failed" }, { status: 500 });
+    } finally {
+      client.release();
+    }
   }
 
   if (kind === "playbook") {

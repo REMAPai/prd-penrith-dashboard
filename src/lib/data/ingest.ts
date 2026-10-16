@@ -7,6 +7,12 @@ export const claimSchema = z.object({
   message: z.string().max(4000).default(""),
 });
 
+export const optoutSchema = z.object({
+  conversationId: z.string().min(1).max(200),
+  message: z.string().max(200).default("STOP"),
+  at: z.string().datetime({ offset: true }),
+});
+
 export const turnSchema = z.object({
   conversationId: z.string().min(1).max(200),
   enquiryId: str,
