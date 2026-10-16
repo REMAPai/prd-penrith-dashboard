@@ -3,6 +3,7 @@ import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
 import { Badge, Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
 import { conversationDays, conversationsOnDay, dayLabel, splitDays, timeLabel, turnsOnDay } from "@/lib/buyer-days";
+import { initials } from "@/lib/buyer-display";
 import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
 import type { Conversation } from "@/lib/data/types";
 
@@ -71,12 +72,19 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
       <Card status={res.status} title={day === "all" ? "All Data" : dayLabel(day)} sub={`${plural(rows.length, "buyer")} · ${plural(replies, "reply").replace("replys", "replies")} · ${handed} handed to an agent. Open a name to see every message and reply.`} source={res.source}>
         <div style={{ overflow: "auto" }}>
           <table className="t bz" style={{ minWidth: 760 }}>
-            <thead><tr><th>{day === "all" ? "Last message" : "First message"}</th><th>Buyer</th><th>Property</th><th>Source</th><th>Buyer type</th><th>Inspection</th><th>Status</th></tr></thead>
+            <thead><tr><th>Buyer</th><th>Property</th><th>Source</th><th>Buyer type</th><th>Inspection</th><th>Status</th></tr></thead>
             <tbody>
               {rows.slice(0, 500).map(({ c, when }) => (
                 <tr key={c.conversationId} className={c.temperature === "Hot" ? "hot" : undefined}>
-                  <td className="soft">{when}</td>
-                  <td style={{ fontWeight: 500 }}><Link href={`/buyer/${encodeURIComponent(c.conversationId)}?day=${day}`}>{c.buyer || "Unknown buyer"}</Link></td>
+                  <td style={{ fontWeight: 500 }}>
+                    <div className="bz-buyer">
+                      <span className={`bz-av ${c.temperature.toLowerCase()}`} aria-hidden="true">{initials(c.buyer)}</span>
+                      <div>
+                        <Link href={`/buyer/${encodeURIComponent(c.conversationId)}?day=${day}`}>{c.buyer || "Unknown buyer"}</Link>
+                        <div className="bz-when">{day === "all" ? "Last message " : ""}{when}</div>
+                      </div>
+                    </div>
+                  </td>
                   <td>{c.property}</td>
                   <td className="soft">{c.source}</td>
                   <td><Badge tone={tone(c.temperature)}>{c.temperature}</Badge></td>
