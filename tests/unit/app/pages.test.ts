@@ -390,6 +390,14 @@ describe("buyer page: masking and reveal", () => {
     }
   });
 
+  it("shows the status chips with the open one marked", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05", status: "handed" }));
+    expect(html).toContain('class="chip on" aria-current="true"');
+    expect(html).toContain("Opted out");
+  });
+
   it("shows the days as a pill track with the open day marked", async () => {
     withLiveLog();
     as("agent");

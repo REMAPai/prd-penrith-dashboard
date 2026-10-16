@@ -246,3 +246,12 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 .bz-tabs a { padding: 7px 17px; border-radius: 999px; color: #5e4f2e; font-size: 13px; white-space: nowrap; }
 .bz-tabs a:hover { background: rgba(255, 255, 255, 0.35); }
 .bz-tabs a.on { background: var(--bz-espresso); color: #f6eedd; box-shadow: 0 2px 6px rgba(43, 33, 24, 0.3); }
+
+/* Filter chips and the older-days menu */
+.bz-page .chip { background: var(--bz-card); border: 1px solid #d4c6aa; color: var(--bz-ink); }
+.bz-page .chip:hover { background: #f3ead7; }
+.bz-page .chip.on { background: var(--bz-copper); border-color: var(--bz-copper); color: #fff7e8; font-weight: 500; }
+.bz-page .btn { background: var(--bz-card); border: 1px solid #d4c6aa; color: var(--bz-ink); }
+.bz-page .bz-hero .btn { color: #22180c; }
+.bz-page select { background: var(--bz-card); border: 1px solid #d4c6aa; }
+.bz-page .bz-hero select { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14); }
