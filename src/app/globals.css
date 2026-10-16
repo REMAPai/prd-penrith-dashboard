@@ -276,3 +276,12 @@ main:has(.bz-page) { background: var(--bz-page); }
 /* Legibility: darker supporting text on the cream surface. */
 .bz-page .sub, .bz-page .soft { color: var(--bz-ink-soft); }
 .bz-hero-sub { color: #e6dcc3; }
+
+/* Legibility: the buyer table. */
+.bz-page table.t.bz thead th { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; }
+.bz-page table.t.bz td { font-size: 14px; }
+.bz-page table.t.bz td a { color: var(--bz-espresso); font-weight: 600; font-size: 15px; }
+.bz-page table.t.bz td a:hover { color: var(--bz-copper); text-decoration: underline; }
+.bz-when { font-size: 13px; }
+.bz-av { width: 38px; height: 38px; font-size: 13px; font-weight: 600; }
+.bz-pill, .bz-tag { font-size: 13px; font-weight: 500; }
