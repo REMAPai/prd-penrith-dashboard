@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
-import { Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
+import { Card, Denied, Notice, StatusBadge, Tabs, fmtDate } from "@/components/ui";
 import { conversationDays, conversationsOnDay, dayLabel, splitDays, timeLabel, turnsOnDay } from "@/lib/buyer-days";
 import { initials } from "@/lib/buyer-display";
 import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
@@ -36,7 +36,23 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
 
   return (
     <div className="bz-page">
-      <PageHeader title="Buyer Sequencing" status={res.status} sub={live ? `Every buyer and every reply, one tab per day (Sydney time). Updated ${fmtDate(res.asOf)}.` : "No conversations yet: the live log is not connected."} />
+      <section className="bz-hero">
+        <div>
+          <div className="bz-hero-title"><h1>Buyer Sequencing</h1><StatusBadge status={res.status} /></div>
+          <div className="bz-hero-sub">{live ? `Every buyer and every reply, one tab per day (Sydney time). Updated ${fmtDate(res.asOf)}.` : "No conversations yet: the live log is not connected."}</div>
+        </div>
+      <form method="get" action="/buyer" className="bz-search" role="search">
+        <input type="hidden" name="day" value={day} />
+        <input type="hidden" name="status" value={status} />
+        <input type="search" name="q" defaultValue={q} placeholder="Search buyer, property, source or agent" aria-label="Search buyers" />
+        <select name="agent" defaultValue={agent} aria-label="Filter by agent">
+          <option value="">All agents</option>
+          {agents.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <button className="btn">Search</button>
+        {(q || status !== "all" || agent) && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
+      </form>
+      </section>
       {res.note && <Notice>{res.note}</Notice>}
       {live && !(res as { sendingLive?: boolean }).sendingLive && <Notice>Outbound sending is held. The assistant is working on real enquiries; replies are not being sent to buyers yet.</Notice>}
       <Tabs base="/buyer" param="day" current={day} tabs={tabs} />
@@ -51,17 +67,6 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         </form>
       )}
 
-      <form method="get" action="/buyer" style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="search">
-        <input type="hidden" name="day" value={day} />
-        <input type="hidden" name="status" value={status} />
-        <input type="search" name="q" defaultValue={q} placeholder="Search buyer, property, source or agent" aria-label="Search buyers" style={{ flex: "1 1 260px", maxWidth: 420 }} />
-        <select name="agent" defaultValue={agent} aria-label="Filter by agent" style={{ width: "auto", maxWidth: 220 }}>
-          <option value="">All agents</option>
-          {agents.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <button className="btn">Search</button>
-        {(q || status !== "all" || agent) && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
-      </form>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {([["all", "All"], ["handed", "Handed to agent"], ["replying", "Assistant replying"], ["optedout", "Opted out"]] as [BuyerStatus, string][]).map(([k, label]) => (
           <Link key={k} className={`chip${status === k ? " on" : ""}`} aria-current={status === k ? "true" : undefined} href={`/buyer?day=${day}&status=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`}>{label}</Link>
