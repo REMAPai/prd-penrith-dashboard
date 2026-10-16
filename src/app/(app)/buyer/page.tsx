@@ -35,7 +35,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
   const tabs: [string, string][] = [...shown.map((d): [string, string] => [d, d === days[0] ? `${dayLabel(d)} (latest)` : dayLabel(d)]), ["all", "All Data"]];
 
   return (
-    <>
+    <div className="bz-page">
       <PageHeader title="Buyer Sequencing" status={res.status} sub={live ? `Every buyer and every reply, one tab per day (Sydney time). Updated ${fmtDate(res.asOf)}.` : "No conversations yet: the live log is not connected."} />
       {res.note && <Notice>{res.note}</Notice>}
       {live && !(res as { sendingLive?: boolean }).sendingLive && <Notice>Outbound sending is held. The assistant is working on real enquiries; replies are not being sent to buyers yet.</Notice>}
@@ -96,6 +96,6 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
           {rows.length === 0 && <div className="soft" style={{ padding: 16 }}>{res.data.length === 0 ? "No buyers yet. Each enquiry appears here as soon as the assistant replies to it." : q || status !== "all" || agent ? "No buyers match your filters." : "No buyers for this day."}</div>}
         </div>
       </Card>
-    </>
+    </div>
   );
 }
