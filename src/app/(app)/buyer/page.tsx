@@ -2,7 +2,7 @@ import Link from "next/link";
 import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
 import { Badge, Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
-import { conversationDays, conversationsOnDay, dayLabel, timeLabel, turnsOnDay } from "@/lib/buyer-days";
+import { conversationDays, conversationsOnDay, dayLabel, splitDays, timeLabel, turnsOnDay } from "@/lib/buyer-days";
 import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
 import type { Conversation } from "@/lib/data/types";
 
@@ -31,7 +31,8 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
   const agents = agentsOf(dayRows);
   const handed = rows.filter(({ c }) => c.readyForAgent).length;
   const replies = rows.reduce((n, { c }) => n + (day === "all" ? c.turns : turnsOnDay(c, day)).filter((x) => x.assistant).length, 0);
-  const tabs: [string, string][] = [...days.map((d, i): [string, string] => [d, i === 0 ? `${dayLabel(d)} (latest)` : dayLabel(d)]), ["all", "All Data"]];
+  const { shown, older } = splitDays(days, day);
+  const tabs: [string, string][] = [...shown.map((d): [string, string] => [d, d === days[0] ? `${dayLabel(d)} (latest)` : dayLabel(d)]), ["all", "All Data"]];
 
   return (
     <>
@@ -39,6 +40,16 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
       {res.note && <Notice>{res.note}</Notice>}
       {live && !(res as { sendingLive?: boolean }).sendingLive && <Notice>Outbound sending is held. The assistant is working on real enquiries; replies are not being sent to buyers yet.</Notice>}
       <Tabs base="/buyer" param="day" current={day} tabs={tabs} />
+      {older.length > 0 && (
+        <form method="get" action="/buyer" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <label className="soft" style={{ fontSize: 12 }} htmlFor="older-day">Older days</label>
+          <select id="older-day" name="day" defaultValue="" style={{ width: "auto" }}>
+            <option value="" disabled>Choose a day</option>
+            {older.map((d) => <option key={d} value={d}>{dayLabel(d)} {d.slice(0, 4)}</option>)}
+          </select>
+          <button className="btn sm">Open</button>
+        </form>
+      )}
 
       <form method="get" action="/buyer" style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="search">
         <input type="hidden" name="day" value={day} />

@@ -27,3 +27,13 @@ export function conversationsOnDay(convos: Conversation[], day: string): { c: Co
     .filter((x) => x.first)
     .sort((a, b) => a.first.localeCompare(b.first));
 }
+
+export const MAX_DAY_TABS = 10;
+
+/** The newest days get their own tab; the rest go in an "Older days" menu. The open day always keeps a tab. */
+export function splitDays(days: string[], current: string, max = MAX_DAY_TABS): { shown: string[]; older: string[] } {
+  const shown = days.slice(0, max);
+  const older = days.slice(max);
+  if (older.includes(current)) return { shown: [...shown, current], older: older.filter((d) => d !== current) };
+  return { shown, older };
+}
