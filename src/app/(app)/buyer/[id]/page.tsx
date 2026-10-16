@@ -78,7 +78,7 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
             )}
             {t.assistant && (
               <div style={{ alignSelf: "flex-end", maxWidth: "78%" }}>
-                <div className="bubble" style={{ background: "var(--brand-tint)", color: "var(--brand-ink)" }}>{t.assistant}</div>
+                <div className="bubble" style={{ background: "var(--chat-reply)", color: "var(--chat-reply-ink)" }}>{t.assistant}</div>
                 <div className="soft" style={{ fontSize: 12, marginTop: 3, textAlign: "right" }}>Assistant · {t.replyAt ? `${dayLabel(sydneyDay(t.replyAt))}, ${timeLabel(t.replyAt)}` : "time not recorded"}</div>
               </div>
             )}
