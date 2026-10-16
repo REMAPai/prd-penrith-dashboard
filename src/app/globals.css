@@ -211,7 +211,9 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 
 /* Buyer Sequencing page surface (Bronze). Scoped to .bz-page so no other page changes. */
-.bz-page { background: var(--bz-page); color: var(--bz-ink); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: inset 0 1px 3px rgba(60, 40, 15, 0.12); }
+.bz-page { color: var(--bz-ink); display: flex; flex-direction: column; gap: 16px; }
+/* The sand colour fills the whole content area (not the sidebar or top bar), so the page no longer looks like a box on white. */
+main:has(.bz-page) { background: var(--bz-page); }
 .bz-page .card { background: var(--bz-card); border: 1px solid var(--bz-card-line); border-radius: 14px; box-shadow: 0 1px 2px rgba(60, 40, 15, 0.08), 0 10px 22px rgba(60, 40, 15, 0.08); }
 .bz-page .sub, .bz-page .soft { color: var(--bz-ink-soft); }
 
