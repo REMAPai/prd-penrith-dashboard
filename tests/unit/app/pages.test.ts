@@ -203,7 +203,7 @@ describe("Development Playbook page", () => {
 
 const open = "live-pen-0";
 const liveConversation: Conversation = {
-  conversationId: open, buyer: "Test Buyer", phone: "0400 000 000", email: "buyer@example.test", property: "1 Test St", source: "Test", agent: "Test Agent", agentEmail: "agent@example.test", hadPropertyRecord: "yes",
+  conversationId: open, buyer: "Test Buyer", phone: "0400 000 000", email: "buyer@example.test", property: "1 Test St", source: "Test", agent: "Test Agent", agentEmail: "agent@example.test", optedOut: false, hadPropertyRecord: "yes",
   temperature: "Hot", buyerType: "Owner occupier", financeStatus: "pre_approved", needsToSellFirst: "no", timeframe: "now", inspection: "not_discussed",
   wantsContract: false, consent: "yes", readyForAgent: false, whyReady: "", afterHours: false, startedAt: "2026-10-05T00:00:00Z", lastAt: "2026-10-05T00:05:00Z",
   date: "2026-10-05", turns: [{ at: "2026-10-05T00:00:00Z", buyer: "Hi", assistant: "Hello", replyAt: "2026-10-05T00:01:00Z" }], handoffStatus: "none", slaDueAt: null,
@@ -275,6 +275,42 @@ describe("buyer page: masking and reveal", () => {
     }
   });
 
+  it("offers Mark contacted only while a buyer is with an agent, and shows Contacted after", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(BuyerDetail, detail())).not.toContain("Mark contacted");
+    liveConversation.readyForAgent = true;
+    try {
+      expect(await renderPage(BuyerDetail, detail())).toContain("Mark contacted");
+      as("viewer");
+      expect(await renderPage(BuyerDetail, detail())).not.toContain("Mark contacted");
+      as("agent");
+      liveConversation.handoffStatus = "done";
+      const done = await renderPage(BuyerDetail, detail());
+      expect(done).not.toContain("Mark contacted");
+      expect(done).toContain("Contacted");
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain("Contacted by Test Agent");
+    } finally {
+      liveConversation.readyForAgent = false;
+      liveConversation.handoffStatus = "none";
+    }
+  });
+
+  it("shows opted-out buyers clearly in the list and on the buyer page", async () => {
+    withLiveLog();
+    as("agent");
+    liveConversation.optedOut = true;
+    try {
+      const list = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+      expect(list).toContain("Opted out");
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05", status: "optedout" }))).toContain("Test Buyer");
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05", status: "replying" }))).not.toContain("Test Buyer");
+      expect(await renderPage(BuyerDetail, detail())).toContain("This buyer replied STOP");
+    } finally {
+      liveConversation.optedOut = false;
+    }
+  });
+
   it("says not handed over yet when no agent has the buyer", async () => {
     withLiveLog();
     as("agent");
@@ -313,6 +349,98 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "all" }))).toContain("1 buyer · 1 reply · 0 handed to an agent");
   });
 
+  it("shows an initials avatar and the message time under each buyer's name", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    expect(html).toContain('class="bz-av hot"');
+    expect(html).toContain(">TB<");
+    expect(html).toContain("bz-when");
+    expect(html).not.toContain("First message");
+    expect(await renderPage(Buyer, sp({ day: "all" }))).toContain("Last message ");
+  });
+
+  it("shows the source as a small tag", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-tag">Test</span>');
+  });
+
+  it("shows the buyer type as a Bronze pill", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill hot">Hot</span>');
+  });
+
+  it("shows the status as Bronze pills: assistant replying, with agent, contacted and opted out", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill info">Assistant replying</span>');
+    liveConversation.readyForAgent = true;
+    try {
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill ok">With Test Agent</span>');
+      liveConversation.handoffStatus = "done";
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill ok">Contacted by Test Agent</span>');
+      liveConversation.optedOut = true;
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('<span class="bz-pill hot">Opted out</span>');
+    } finally {
+      liveConversation.readyForAgent = false;
+      liveConversation.handoffStatus = "none";
+      liveConversation.optedOut = false;
+    }
+  });
+
+  it("shows the status chips with the open one marked", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05", status: "handed" }));
+    expect(html).toContain('class="chip on" aria-current="true"');
+    expect(html).toContain("Opted out");
+  });
+
+  it("shows the days as a pill track with the open day marked", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    expect(html).toContain('class="bz-tabs"');
+    expect(html).toContain('class="on" aria-current="page"');
+  });
+
+  it("shows four summary cards for the open tab: buyers, replies, handed to agent and hot buyers", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    const stats = html.slice(html.indexOf('class="bz-stats"'), html.indexOf('class="bz-tabs"'));
+    expect(stats).toContain("Buyers</div><div class=\"v\">1<");
+    expect(stats).toContain("Replies sent</div><div class=\"v\">1<");
+    expect(stats).toContain("Handed to agent</div><div class=\"v\">0<");
+    expect(stats).toContain("Hot buyers</div><div class=\"v\">1<");
+  });
+
+  it("shows the header band with the title, the data status and the search inside it", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    const hero = html.slice(html.indexOf('class="bz-hero"'), html.indexOf("</section>"));
+    expect(hero).toContain("Buyer Sequencing");
+    expect(hero).toContain("b-live");
+    expect(hero).toContain('role="search"');
+    expect(hero).toContain('name="q"');
+    expect(hero).toContain('name="agent"');
+  });
+
+  it("puts the Buyer Sequencing page on the Bronze surface", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('class="bz-page"');
+  });
+
+  it("uses the Bronze table style for the buyer list", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('class="t bz"');
+  });
+
   it("marks Hot buyers in the list so they stand out", async () => {
     withLiveLog();
     as("agent");
@@ -349,6 +477,12 @@ describe("buyer page: masking and reveal", () => {
     expect(all).toContain('value="Test Agent"');
     expect(await renderPage(Buyer, sp({ day: "2026-10-05", agent: "Test Agent" }))).toContain("Test Buyer");
     expect(await renderPage(Buyer, sp({ day: "2026-10-05", agent: "Someone Else" }))).not.toContain("Test Buyer");
+  });
+
+  it("explains the empty state when there are no buyers at all", async () => {
+    as("agent");
+    const html = await renderPage(Buyer, sp());
+    expect(html).toContain("No buyers yet. Each enquiry appears here as soon as the assistant replies to it.");
   });
 
   it("hides everything that is not live in Live only mode", async () => {

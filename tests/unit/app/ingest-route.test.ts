@@ -84,6 +84,54 @@ describe("ingest route: claim (idempotency)", () => {
   });
 });
 
+describe("ingest route: optout", () => {
+  const optout = { conversationId: "c-1", at: "2026-10-01T01:00:00+10:00" };
+
+  it("flags the conversation, records the STOP as the next turn, and touches nothing else", async () => {
+    configured();
+    poolClient.query.mockImplementation(async (sql: string) => ({ rows: [], rowCount: /^\s*update buyer_conversations/.test(sql) ? 1 : 0 }));
+    const r = await post("optout", optout);
+    expect(await r.json()).toEqual({ ok: true, updated: true });
+    const sql = poolClient.query.mock.calls.map((c) => String(c[0]).trim());
+    expect(sql[0]).toBe("begin");
+    expect(sql[1]).toContain("set opted_out = true, last_at = $2 where conversation_id = $1");
+    expect(sql[1]).not.toContain("ready_for_agent");
+    expect(sql[2]).toContain("coalesce(max(turn), 0) + 1");
+    expect(poolClient.query.mock.calls[2][1]).toEqual(["c-1", "STOP", "2026-10-01T01:00:00+10:00"]);
+    expect(sql[3]).toBe("commit");
+    expect(poolClient.release).toHaveBeenCalled();
+  });
+
+  it("ignores a conversation the dashboard has never stored", async () => {
+    configured();
+    poolClient.query.mockImplementation(async () => ({ rows: [], rowCount: 0 }));
+    const r = await post("optout", optout);
+    expect(await r.json()).toEqual({ ok: true, updated: false });
+    expect(poolClient.query.mock.calls.map((c) => String(c[0]).trim().split(/\s+/)[0])).toEqual(["begin", "update", "commit"]);
+  });
+
+  it("is 400 for an invalid body and 401 without the key", async () => {
+    configured();
+    expect((await post("optout", { conversationId: "c-1" })).status).toBe(400);
+    expect((await post("optout", optout, {})).status).toBe(401);
+  });
+
+  it("rolls back and returns 500 without leaking the error", async () => {
+    configured();
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    poolClient.query.mockImplementation(async (sql: string) => {
+      if (/^\s*update buyer_conversations/.test(sql)) throw new Error("password authentication failed for user secret_user");
+      return { rows: [], rowCount: 0 };
+    });
+    const r = await post("optout", optout);
+    expect(r.status).toBe(500);
+    expect(JSON.stringify(await r.json())).not.toContain("secret_user");
+    expect(poolClient.query.mock.calls.map((c) => String(c[0]))).toContain("rollback");
+    expect(poolClient.release).toHaveBeenCalled();
+    err.mockRestore();
+  });
+});
+
 describe("ingest route: turn", () => {
   it("upserts the conversation and the turn in one transaction", async () => {
     configured();
@@ -104,7 +152,15 @@ describe("ingest route: turn", () => {
     const convo = poolClient.query.mock.calls[1];
     expect(String(convo[0])).toContain("agent_email = excluded.agent_email");
     expect(String(convo[0])).toContain("had_property_record = excluded.had_property_record");
-    expect(convo[1]!.slice(-2)).toEqual(["thomas@example.test", "yes"]);
+    expect(convo[1]!.slice(-3, -1)).toEqual(["thomas@example.test", "yes"]);
+  });
+
+  it("stores opted_out and never clears it once a buyer has opted out", async () => {
+    configured();
+    await post("turn", { ...turn, optedOut: true });
+    const convo = poolClient.query.mock.calls[1];
+    expect(String(convo[0])).toContain("opted_out = buyer_conversations.opted_out or excluded.opted_out");
+    expect(convo[1]!.slice(-1)).toEqual([true]);
   });
 
   it("never lets a re-sent turn re-open a finished handoff", async () => {

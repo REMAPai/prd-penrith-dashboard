@@ -55,3 +55,4 @@ export const STATUS_LABEL: Record<Status, string> = {
 export const canManageUsers = (role: Role) => role === "platform_admin" || role === "company_admin" || role === "branch_admin";
 export const canEditPipeline = (role: Role) => ["platform_admin", "company_admin", "branch_admin", "marketing"].includes(role);
 export const canRevealPii = (role: Role) => role !== "viewer";
+export const canMarkContacted = (role: Role) => role !== "viewer";

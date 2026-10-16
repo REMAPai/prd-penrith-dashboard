@@ -12,7 +12,7 @@ test.describe("buyer conversations (read only)", () => {
   test("the page opens on the latest day, with one tab per day and All Data last, and no sample ribbon", async ({ page }) => {
     await page.goto("/buyer");
     await expect(page.locator(".ribbon")).toHaveCount(0);
-    const tabs = page.locator(".tabs a");
+    const tabs = page.locator(".bz-tabs a");
     await expect(tabs.first()).toContainText("(latest)");
     await expect(tabs.last()).toHaveText("All Data");
     await expect(tabs.first()).toHaveClass(/on/);
@@ -22,7 +22,7 @@ test.describe("buyer conversations (read only)", () => {
 
   test("All Data lists every buyer", async ({ page }) => {
     await page.goto("/buyer?day=all");
-    await expect(page.locator(".tabs a.on")).toHaveText("All Data");
+    await expect(page.locator(".bz-tabs a.on")).toHaveText("All Data");
     await expect(page.getByRole("link", { name: "E2E Buyer" })).toBeVisible();
   });
 

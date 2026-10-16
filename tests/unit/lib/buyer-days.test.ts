@@ -41,3 +41,23 @@ describe("day tabs", () => {
     expect(conversationsOnDay([late, early], "2026-10-16").map((x) => x.c.conversationId)).toEqual(["early", "late"]);
   });
 });
+
+describe("splitDays", () => {
+  const days = Array.from({ length: 14 }, (_, i) => `2026-10-${String(14 - i).padStart(2, "0")}`);
+  it("gives the newest ten days a tab and puts the rest in the older menu", async () => {
+    const { splitDays } = await import("@/lib/buyer-days");
+    const r = splitDays(days, days[0]);
+    expect(r.shown).toEqual(days.slice(0, 10));
+    expect(r.older).toEqual(days.slice(10));
+  });
+  it("keeps a tab for an older day while it is open", async () => {
+    const { splitDays } = await import("@/lib/buyer-days");
+    const r = splitDays(days, days[12]);
+    expect(r.shown).toEqual([...days.slice(0, 10), days[12]]);
+    expect(r.older).toEqual([days[10], days[11], days[13]]);
+  });
+  it("shows every day when there are few", async () => {
+    const { splitDays } = await import("@/lib/buyer-days");
+    expect(splitDays(days.slice(0, 3), days[0])).toEqual({ shown: days.slice(0, 3), older: [] });
+  });
+});

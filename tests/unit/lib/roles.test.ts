@@ -84,3 +84,12 @@ describe("roles: predicates", () => {
 
   it.each(ROLES.map((r) => [r, r !== "viewer"] as [Role, boolean]))("canRevealPii(%s) = %s", (r, v) => expect(canRevealPii(r)).toBe(v));
 });
+
+describe("canMarkContacted", () => {
+  it("lets every role except a viewer mark a buyer as contacted", async () => {
+    const { canMarkContacted } = await import("@/lib/roles");
+    expect(canMarkContacted("agent")).toBe(true);
+    expect(canMarkContacted("branch_admin")).toBe(true);
+    expect(canMarkContacted("viewer")).toBe(false);
+  });
+});

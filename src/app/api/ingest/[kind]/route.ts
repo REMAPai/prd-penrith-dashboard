@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { pool } from "@/lib/db";
-import { CLAIM_WINDOW_MINUTES, claimSchema, msgHash, turnSchema } from "@/lib/data/ingest";
+import { CLAIM_WINDOW_MINUTES, claimSchema, msgHash, optoutSchema, turnSchema } from "@/lib/data/ingest";
 import { COUNCIL_BRANCH, playbookSchema } from "@/lib/playbook";
 
 export const dynamic = "force-dynamic";
@@ -49,16 +49,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ kind: stri
     try {
       await client.query("begin");
       await client.query(
-        `insert into buyer_conversations (conversation_id, enquiry_id, buyer, phone, email, property, source, agent, temperature, buyer_type, finance_status, needs_to_sell_first, timeframe, inspection, wants_contract, consent, ready_for_agent, why_ready, handoff_status, sla_due_at, after_hours, blocked, agent_email, had_property_record, started_at, last_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$24,$25,$23,$23)
+        `insert into buyer_conversations (conversation_id, enquiry_id, buyer, phone, email, property, source, agent, temperature, buyer_type, finance_status, needs_to_sell_first, timeframe, inspection, wants_contract, consent, ready_for_agent, why_ready, handoff_status, sla_due_at, after_hours, blocked, agent_email, had_property_record, opted_out, started_at, last_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$24,$25,$26,$23,$23)
          on conflict (conversation_id) do update set
            buyer = excluded.buyer, phone = excluded.phone, email = excluded.email, property = excluded.property, agent = excluded.agent,
            temperature = excluded.temperature, buyer_type = excluded.buyer_type, finance_status = excluded.finance_status,
            needs_to_sell_first = excluded.needs_to_sell_first, timeframe = excluded.timeframe, inspection = excluded.inspection,
            wants_contract = excluded.wants_contract, consent = excluded.consent, ready_for_agent = excluded.ready_for_agent,
-           why_ready = excluded.why_ready, sla_due_at = excluded.sla_due_at, blocked = excluded.blocked, agent_email = excluded.agent_email, had_property_record = excluded.had_property_record, last_at = excluded.last_at,
+           why_ready = excluded.why_ready, sla_due_at = excluded.sla_due_at, blocked = excluded.blocked, agent_email = excluded.agent_email, had_property_record = excluded.had_property_record,
+           opted_out = buyer_conversations.opted_out or excluded.opted_out, last_at = excluded.last_at,
            handoff_status = case when buyer_conversations.handoff_status = 'done' then 'done' else excluded.handoff_status end`,
-        [t.conversationId, t.enquiryId, t.buyer, t.phone, t.email, t.property, t.source, t.agent, t.temperature, t.buyerType, t.financeStatus, t.needsToSellFirst, t.timeframe, t.inspection, t.wantsContract, t.consent, t.readyForAgent, t.whyReady, t.handoffStatus, t.slaDueAt, t.afterHours, t.blocked, t.buyerAt, t.agentEmail, t.hadPropertyRecord],
+        [t.conversationId, t.enquiryId, t.buyer, t.phone, t.email, t.property, t.source, t.agent, t.temperature, t.buyerType, t.financeStatus, t.needsToSellFirst, t.timeframe, t.inspection, t.wantsContract, t.consent, t.readyForAgent, t.whyReady, t.handoffStatus, t.slaDueAt, t.afterHours, t.blocked, t.buyerAt, t.agentEmail, t.hadPropertyRecord, t.optedOut],
       );
       await client.query(
         `insert into buyer_turns (conversation_id, turn, buyer_message, assistant_reply, buyer_at, reply_at)
@@ -75,6 +76,33 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ kind: stri
       client.release();
     }
     return NextResponse.json({ ok: true });
+  }
+
+  if (kind === "optout") {
+    const p = optoutSchema.safeParse(body);
+    if (!p.success) return NextResponse.json({ error: "invalid body" }, { status: 400 });
+    const o = p.data;
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      // Only flags and records a conversation that already exists; the buyer's other captured details are left alone.
+      const found = await client.query(`update buyer_conversations set opted_out = true, last_at = $2 where conversation_id = $1`, [o.conversationId, o.at]);
+      if (found.rowCount) {
+        await client.query(
+          `insert into buyer_turns (conversation_id, turn, buyer_message, assistant_reply, buyer_at, reply_at)
+           select $1, coalesce(max(turn), 0) + 1, $2, '', $3, null from buyer_turns where conversation_id = $1`,
+          [o.conversationId, o.message, o.at],
+        );
+      }
+      await client.query("commit");
+      return NextResponse.json({ ok: true, updated: Boolean(found.rowCount) });
+    } catch (e) {
+      await client.query("rollback");
+      console.error("ingest optout failed", e instanceof Error ? e.message : "error");
+      return NextResponse.json({ error: "store failed" }, { status: 500 });
+    } finally {
+      client.release();
+    }
   }
 
   if (kind === "playbook") {

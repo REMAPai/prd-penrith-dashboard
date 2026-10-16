@@ -7,6 +7,7 @@ import { STAGES } from "@/lib/stages";
 const root = process.cwd();
 const dir = join(root, "db", "migrations");
 const REMOVAL = "009_remove_previous_playbook_rows.sql";
+const TEST_CHAT_REMOVAL = "012_remove_test_conversations.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const sql = (f: string) => readFileSync(join(dir, f), "utf8");
 const all = files.map(sql).join("\n");
@@ -38,7 +39,7 @@ describe("migrations are idempotent", () => {
         for (const s of stmts.filter((x) => /^insert\s+into/i.test(x))) expect(s, s.slice(0, 60)).toMatch(/on conflict/i);
       });
       it("never destroys data (the one approved removal has its own tests below)", () => {
-        for (const s of f === REMOVAL ? [] : stmts) {
+        for (const s of f === REMOVAL || f === TEST_CHAT_REMOVAL ? [] : stmts) {
           expect(s, s.slice(0, 60)).not.toMatch(/^\s*(truncate|delete\s+from)/i);
           if (/^\s*drop\s/i.test(s)) expect(s).toMatch(/if exists/i);
         }
@@ -193,3 +194,15 @@ describe("scripts/migrate.mjs", () => {
     expect(queries).not.toContain("commit");
   });
 });
+
+describe("012_remove_test_conversations", () => {
+  const stmts = statements(sql(TEST_CHAT_REMOVAL));
+  it("only deletes test-chat rows from buyer_conversations", () => {
+    expect(stmts).toHaveLength(1);
+    expect(stmts[0]).toMatch(/^delete from buyer_conversations where /i);
+    expect(stmts[0]).toMatch(/testchat/);
+    expect(stmts[0]).toMatch(/'Test chat'/);
+    expect(stmts[0]).not.toMatch(/vault/i);
+  });
+});
+
