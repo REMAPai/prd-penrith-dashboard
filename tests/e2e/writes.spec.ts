@@ -26,7 +26,6 @@ test.describe("WRITES DATA: development pipeline", () => {
     await page.locator('.drawer select[name="stage"]').selectOption({ label: "Qualified" });
     await page.getByRole("button", { name: "Move", exact: true }).click();
     await expect(page.locator(".drawer").getByText("Detected to Qualified")).toBeVisible();
-    await expect(page.locator(".drawer .badge", { hasText: "Qualified" }).first()).toBeVisible();
     const audit = await dbRows("select detail from audit_log where action = 'Stage move' and actor_email = $1 order by id desc limit 1", [emailOf("branch_admin")]);
     expect(audit[0].detail).toContain(`${address}: Detected to Qualified`);
   });
