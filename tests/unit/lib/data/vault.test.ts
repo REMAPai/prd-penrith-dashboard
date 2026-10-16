@@ -68,7 +68,15 @@ describe("getListings: live path", () => {
   it("whitelists fields: no confidential Vault data is ever present in the output", async () => {
     cfg();
     items([prop()]);
-    const r = await getListings("pen", []);
+    // asOf is new Date().toISOString(); a real clock can contain a secret substring (e.g. "21.9" matches "1.9").
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-16T03:04:05.000Z"));
+    let r;
+    try {
+      r = await getListings("pen", []);
+    } finally {
+      vi.useRealTimers();
+    }
     expect(r.status).toBe("live");
     expect(r.data).toHaveLength(1);
     expect(Object.keys(r.data[0]).sort()).toEqual(LISTING_KEYS);
