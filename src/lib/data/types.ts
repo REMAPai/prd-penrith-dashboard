@@ -13,6 +13,7 @@ export type Conversation = {
   source: string;
   agent: string;
   agentEmail: string;
+  optedOut: boolean;
   hadPropertyRecord: "" | "yes" | "no";
   temperature: "Hot" | "Warm" | "New";
   buyerType: string;

@@ -12,6 +12,30 @@
   --brand-ink: #b3141b;
   --chat-reply: #e6f1fb;
   --chat-reply-ink: #0c447c;
+  /* Bronze palette. Used only by the Buyer Sequencing list (class names starting bz-). */
+  --bz-head: #efe5d0;
+  --bz-head-ink: #6b5b3a;
+  --bz-line: #e6dbc4;
+  --bz-stripe: #f6efe0;
+  --bz-hover: #f0e6d0;
+  --bz-ink-soft: #8a7a5c;
+  --bz-tag: #efe5d0;
+  --bz-tag-ink: #5e4f2e;
+  --bz-hot: #f0d9d0;
+  --bz-hot-ink: #8e3b2b;
+  --bz-hot-ring: #e2bfb2;
+  --bz-hot-edge: #b5472f;
+  --bz-warm: #f2e2b8;
+  --bz-warm-ink: #8a5e10;
+  --bz-warm-ring: #e3cc8e;
+  --bz-new: #ebe3d2;
+  --bz-new-ink: #7a6a4f;
+  --bz-new-ring: #d9cdb2;
+  --bz-ok: #dde8d3;
+  --bz-ok-ink: #3f6b3a;
+  --bz-ok-ring: #c3d6b4;
+  --bz-info: #dce4ee;
+  --bz-info-ink: #34527a;
   --live: #1f9d6b;
   --live-tint: #e6f6ef;
   --live-ink: #136b49;
@@ -101,6 +125,7 @@ table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.t th { text-align: left; color: var(--text-soft); font-size: 12px; font-weight: 500; padding: 8px 12px; white-space: nowrap; }
 table.t td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
 table.t tbody tr:hover { background: var(--surface-soft); }
+table.t tr.hot td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
 table.t tr.click { cursor: pointer; }
 
 .side { width: 232px; flex: none; background: #fff; border-right: 1px solid var(--border); padding: 18px 12px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 0; height: 100vh; overflow: auto; }
@@ -155,3 +180,7 @@ table.t.compact td { padding: 5px 8px; vertical-align: top; line-height: 1.35; }
 table.t.compact td.nw { white-space: nowrap; }
 table.t.compact td.clip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+
+@keyframes skel { 0% { opacity: 0.55; } 50% { opacity: 1; } 100% { opacity: 0.55; } }
+.skel { background: var(--surface-soft); border-radius: 8px; animation: skel 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }

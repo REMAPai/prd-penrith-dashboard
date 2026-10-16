@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimSchema, msgHash, turnSchema } from "../../src/lib/data/ingest";
+import { claimSchema, msgHash, optoutSchema, turnSchema } from "../../src/lib/data/ingest";
 
 describe("msgHash", () => {
   it("ignores case and spacing so duplicate triggers match", () => {
@@ -41,5 +41,24 @@ describe("turnSchema: agent email and Vault record", () => {
   it("accepts the agent email and a yes or no for the Vault record, and rejects anything else", () => {
     expect(turnSchema.parse({ ...base, agentEmail: "a@example.test", hadPropertyRecord: "yes" })).toMatchObject({ agentEmail: "a@example.test", hadPropertyRecord: "yes" });
     expect(turnSchema.safeParse({ ...base, hadPropertyRecord: "maybe" }).success).toBe(false);
+  });
+});
+
+describe("turnSchema: opted out", () => {
+  const base = { conversationId: "vault_1", turn: 1, buyerAt: "2026-10-06T01:00:00.000Z" };
+  it("defaults to false and accepts true", () => {
+    expect(turnSchema.parse(base).optedOut).toBe(false);
+    expect(turnSchema.parse({ ...base, optedOut: true }).optedOut).toBe(true);
+  });
+  it("rejects a non-boolean", () => {
+    expect(turnSchema.safeParse({ ...base, optedOut: "yes" }).success).toBe(false);
+  });
+});
+
+describe("optoutSchema", () => {
+  it("needs a conversation id and a time, and defaults the message to STOP", () => {
+    expect(optoutSchema.safeParse({ at: "2026-10-06T01:00:00.000Z" }).success).toBe(false);
+    expect(optoutSchema.safeParse({ conversationId: "c" }).success).toBe(false);
+    expect(optoutSchema.parse({ conversationId: "c", at: "2026-10-06T01:00:00.000Z" }).message).toBe("STOP");
   });
 });

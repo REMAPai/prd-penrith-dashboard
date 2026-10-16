@@ -38,6 +38,12 @@ describe("getConversations: dashboard database", () => {
     expect(r.data[0]).toMatchObject({ agent: "Thomas Latty", agentEmail: "thomas@example.test", hadPropertyRecord: "yes" });
   });
 
+  it("maps the opted-out flag, false when the column is missing", async () => {
+    routeDb([[/from buyer_conversations/, [row({ opted_out: true }), row({ conversation_id: "db-2" })]], [/from buyer_turns/, turns]]);
+    const r = await getConversations("pen");
+    expect(r.data.map((c) => c.optedOut)).toEqual([true, false]);
+  });
+
   it("only reads the Penrith branch and passes the conversation ids as a parameter", async () => {
     routeDb([[/from buyer_conversations/, [row()]], [/from buyer_turns/, turns]]);
     await getConversations("pen");
