@@ -202,7 +202,7 @@ describe("Development Playbook page", () => {
 
 const open = "live-pen-0";
 const liveConversation: Conversation = {
-  conversationId: open, buyer: "Test Buyer", phone: "0400 000 000", email: "buyer@example.test", property: "1 Test St", source: "Test", agent: "Test Agent",
+  conversationId: open, buyer: "Test Buyer", phone: "0400 000 000", email: "buyer@example.test", property: "1 Test St", source: "Test", agent: "Test Agent", agentEmail: "agent@example.test", hadPropertyRecord: "yes",
   temperature: "Hot", buyerType: "Owner occupier", financeStatus: "pre_approved", needsToSellFirst: "no", timeframe: "now", inspection: "not_discussed",
   wantsContract: false, consent: "yes", readyForAgent: false, whyReady: "", afterHours: false, startedAt: "2026-10-05T00:00:00Z", lastAt: "2026-10-05T00:05:00Z",
   date: "2026-10-05", turns: [{ at: "2026-10-05T00:00:00Z", buyer: "Hi", assistant: "Hello", replyAt: "2026-10-05T00:01:00Z" }], handoffStatus: "none", slaDueAt: null,

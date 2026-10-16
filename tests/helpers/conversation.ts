@@ -11,6 +11,8 @@ export function convo(over: Partial<Conversation> = {}, turns: Turn[] = [turn("I
     property: "12 Test St, PENRITH",
     source: "REA",
     agent: "",
+    agentEmail: "",
+    hadPropertyRecord: "",
     temperature: "New",
     buyerType: "",
     financeStatus: "",
