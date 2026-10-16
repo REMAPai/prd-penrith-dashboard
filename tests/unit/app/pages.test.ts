@@ -275,6 +275,27 @@ describe("buyer page: masking and reveal", () => {
     }
   });
 
+  it("offers Mark contacted only while a buyer is with an agent, and shows Contacted after", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(BuyerDetail, detail())).not.toContain("Mark contacted");
+    liveConversation.readyForAgent = true;
+    try {
+      expect(await renderPage(BuyerDetail, detail())).toContain("Mark contacted");
+      as("viewer");
+      expect(await renderPage(BuyerDetail, detail())).not.toContain("Mark contacted");
+      as("agent");
+      liveConversation.handoffStatus = "done";
+      const done = await renderPage(BuyerDetail, detail());
+      expect(done).not.toContain("Mark contacted");
+      expect(done).toContain("Contacted");
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain("Contacted by Test Agent");
+    } finally {
+      liveConversation.readyForAgent = false;
+      liveConversation.handoffStatus = "none";
+    }
+  });
+
   it("says not handed over yet when no agent has the buyer", async () => {
     withLiveLog();
     as("agent");
