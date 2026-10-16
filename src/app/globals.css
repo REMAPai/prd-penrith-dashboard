@@ -255,3 +255,16 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 .bz-page .bz-hero .btn { color: #22180c; }
 .bz-page select { background: var(--bz-card); border: 1px solid #d4c6aa; }
 .bz-page .bz-hero select { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14); }
+
+/* Buyer detail (Bronze). Same palette as the list; only used inside .bz-page. */
+.bz-hero-title .bz-sub { color: #cdbfa4; font-size: 14px; font-weight: 400; }
+.bz-hero .badge.b-grey { background: transparent; border-color: #cdbfa4; color: #e6dcc6; }
+.bz-hero .badge.b-red { background: transparent; border-color: #d98a78; color: #f0b9ab; }
+.bz-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.bz-field { background: var(--bz-card); border: 1px solid var(--bz-card-line); border-left: 3px solid var(--bz-copper); border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 2px rgba(60, 40, 15, 0.08); }
+.bz-field .l { color: var(--bz-ink-soft); font-size: 12px; }
+.bz-field .v { font-weight: 500; margin-top: 2px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bz-field .v a { color: var(--bz-copper); }
+.bz-bubble-buyer { background: var(--bz-stripe); border: 1px solid var(--bz-line); color: var(--bz-ink); }
+.bz-bubble-reply { background: #ecd9b8; border: 1px solid #dcc79f; color: #3b2a14; }
+.bz-page .card .soft { color: var(--bz-ink-soft); }
