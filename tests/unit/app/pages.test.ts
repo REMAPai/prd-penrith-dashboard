@@ -239,7 +239,7 @@ describe("buyer page: masking and reveal", () => {
     expect(html).not.toContain("0400 000 000");
     expect(html).not.toContain("buyer@example.test");
     expect(html).toContain("•••");
-    expect(html).toContain("Reveal phone and email");
+    expect(html).toContain("Show phone and email");
     expect(sess.audit).not.toHaveBeenCalled();
   });
 
@@ -249,6 +249,7 @@ describe("buyer page: masking and reveal", () => {
     const html = await renderPage(BuyerDetail, detail("1"));
     expect(html).toContain("0400 000 000");
     expect(html).toContain("buyer@example.test");
+    expect(html).toContain("Hide phone and email");
     expect(sess.audit).toHaveBeenCalledWith("agent@test.example", "PII reveal", expect.stringContaining(open), "prd", "pen");
   });
 
