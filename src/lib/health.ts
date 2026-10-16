@@ -31,8 +31,14 @@ export async function checkSources(): Promise<Health[]> {
     }
   } else add({ name: "n8n (workflows and executions)", status: "waiting", detail: "Not configured", owner: "REMAP", needs: "N8N_BASE_URL and N8N_API_KEY" });
 
-  if (process.env.CONVERSATIONS_WEBHOOK_KEY && process.env.CONVERSATIONS_WEBHOOK_EMAIL) add({ name: "Conversation log (Google Sheet via n8n)", status: "live", detail: "Configured", owner: "REMAP" });
-  else add({ name: "Conversation log (Google Sheet via n8n)", status: "waiting", detail: "Not connected", owner: "Hamza", needs: "CONVERSATIONS_WEBHOOK_EMAIL and CONVERSATIONS_WEBHOOK_KEY (or a Sheets service account)" });
+  try {
+    const rows = await query<{ n: number }>("select count(*)::int as n from buyer_conversations");
+    const n = rows[0]?.n ?? 0;
+    if (n > 0) add({ name: "Buyer conversations (dashboard database)", status: "live", detail: `${n} stored`, owner: "REMAP" });
+    else add({ name: "Buyer conversations (dashboard database)", status: "waiting", detail: "Nothing stored yet", owner: "Hamza", needs: "n8n workflow writing to /api/ingest (INGEST_API_KEY)" });
+  } catch {
+    add({ name: "Buyer conversations (dashboard database)", status: "waiting", detail: "Cannot read the table", owner: "REMAP", needs: "Check DATABASE_URL and that migrations ran" });
+  }
 
   if (process.env.VAULT_API_BASE_URL && process.env.VAULT_API_KEY && process.env.VAULT_API_TOKEN) {
     try {

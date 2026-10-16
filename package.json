@@ -6,12 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src",
+    "lint": "eslint src tests playwright.config.ts vitest.config.mts",
     "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
     "db:seed": "node --env-file=.env.local scripts/seed.mjs",
     "postinstall": "node scripts/copy-maplibre.mjs",
     "predev": "node scripts/copy-maplibre.mjs",
-    "prebuild": "node scripts/copy-maplibre.mjs"
+    "prebuild": "node scripts/copy-maplibre.mjs",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:regression": "vitest run tests/regression",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage",
+    "test:all": "npm run test:coverage && npm run test:e2e"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -26,15 +32,22 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "jsdom": "^30.1.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   }
 }

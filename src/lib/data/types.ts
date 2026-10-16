@@ -2,7 +2,7 @@ import type { Status } from "../roles";
 
 export type Result<T> = { status: Status; data: T; source: string; note?: string; asOf?: string };
 
-export type Turn = { at: string; buyer: string; assistant: string };
+export type Turn = { at: string; buyer: string; assistant: string; replyAt?: string | null };
 
 export type Conversation = {
   conversationId: string;
@@ -12,6 +12,9 @@ export type Conversation = {
   property: string;
   source: string;
   agent: string;
+  agentEmail: string;
+  optedOut: boolean;
+  hadPropertyRecord: "" | "yes" | "no";
   temperature: "Hot" | "Warm" | "New";
   buyerType: string;
   financeStatus: string;
@@ -27,6 +30,8 @@ export type Conversation = {
   lastAt: string;
   date: string | null;
   turns: Turn[];
+  handoffStatus?: "none" | "pending" | "done";
+  slaDueAt?: string | null;
 };
 
 export type Listing = {

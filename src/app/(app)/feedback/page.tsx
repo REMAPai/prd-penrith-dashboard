@@ -22,7 +22,9 @@ async function vote(formData: FormData) {
   "use server";
   const ctx = await access("feedback");
   if (!ctx || ctx === "denied") return;
-  await query("update feedback set votes = votes + 1 where id = $1", [Number(formData.get("id"))]);
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return;
+  await query("with ins as (insert into feedback_votes (feedback_id, voter_email) values ($1, $2) on conflict do nothing returning 1) update feedback set votes = votes + 1 where id = $1 and exists (select 1 from ins)", [id, ctx.session.email]);
   revalidatePath("/feedback");
 }
 
@@ -41,8 +43,9 @@ export default async function Feedback() {
   const ctx = await access("feedback");
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
-  const rows = await query<{ id: number; page: string | null; rating: string | null; body: string; status: string; votes: number; author_email: string | null; created_at: string }>(
-    "select id, page, rating, body, status, votes, author_email, created_at from feedback order by (status = 'Done'), votes desc, id desc limit 100",
+  const rows = await query<{ id: number; page: string | null; rating: string | null; body: string; status: string; votes: number; voted: boolean; author_email: string | null; created_at: string }>(
+    "select id, page, rating, body, status, votes, exists (select 1 from feedback_votes v where v.feedback_id = feedback.id and v.voter_email = $1) as voted, author_email, created_at from feedback order by (status = 'Done'), votes desc, id desc limit 100",
+    [ctx.session.email],
   );
   const done = rows.filter((r) => r.status === "Done");
   const isAdmin = ctx.session.role === "platform_admin";
@@ -83,7 +86,7 @@ export default async function Feedback() {
                     </form>
                   ) : <Badge tone={r.status === "Done" ? "done" : r.status === "New" ? "grey" : "prototype"}>{r.status}</Badge>}
                 </td>
-                <td><form action={vote}><input type="hidden" name="id" value={r.id} /><button className="btn sm">+1 · {r.votes}</button></form></td>
+                <td><form action={vote}><input type="hidden" name="id" value={r.id} /><button className="btn sm" disabled={r.voted}>{r.voted ? "Voted" : "+1"} · {r.votes}</button></form></td>
               </tr>
             ))}
           </tbody></table>

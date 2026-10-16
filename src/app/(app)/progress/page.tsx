@@ -11,7 +11,7 @@ type Item = { id: number; project: string; kind: string; text: string; owner: st
 // Percent = share of SRS requirements marked Done for the project (rounded estimate, see docs/requirements/srs.md).
 const PROJECTS: { name: string; status: Status; pct: number; body: string; next: string }[] = [
   { name: "Buyer Sequencing", status: "live", pct: 72, body: "Answers portal enquiries from live Vault data and logs every conversation. Outbound sending is held until the inbound reply rule is set.", next: "Release outbound send" },
-  { name: "Development Pipeline", status: "prototype", pct: 35, body: "Real DAs are loaded and tracked through ten stages. Zoning still has to be confirmed before any priority list.", next: "Confirm field list with Darren" },
+  { name: "Development Playbook", status: "prototype", pct: 35, body: "Each Monday's run is shown week by week, exactly as it is written in the Developer_playbook sheet: applications, zone, applicant, status and companies. Fields the sheet does not hold are marked with the reason.", next: "First weekly run posted to the dashboard" },
   { name: "Meta Lead Funnel", status: "waiting", pct: 15, body: "Scoped. Landing-page enquiries still go through a manual sheet. Direct messages wait on Meta approval.", next: "Confirm form wiring to Vault" },
   { name: "After-hours Voice Agent", status: "planned", pct: 5, body: "Prototype only. No build until Buyer Sequencing is stable and the scope and cost are approved.", next: "Scope and cost sign-off" },
   { name: "Google Reviews", status: "planned", pct: 0, body: "Parked after the realestate.com.au conversation.", next: "Reactivate when asked" },
@@ -23,8 +23,10 @@ async function toggleAsk(formData: FormData) {
   "use server";
   const ctx = await access("progress");
   if (!ctx || ctx === "denied" || ctx.session.role === "viewer") return;
+  const companyId = ctx.branch?.company_id;
+  if (!companyId) return;
   const id = Number(formData.get("id"));
-  const rows = await query<{ status: string; text: string }>("update progress_items set status = case when status = 'done' then 'open' else 'done' end where id = $1 and kind = 'ask' returning status, text", [id]);
+  const rows = await query<{ status: string; text: string }>("update progress_items set status = case when status = 'done' then 'open' else 'done' end where id = $1 and kind = 'ask' and company_id = $2 returning status, text", [id, companyId]);
   if (rows[0]) await audit(ctx.session.email, "Progress item", `${rows[0].status === "done" ? "Done" : "Reopened"}: ${rows[0].text}`, ctx.branch.company_id, ctx.branch.id);
   revalidatePath("/progress");
 }
@@ -33,7 +35,7 @@ export default async function Progress() {
   const ctx = await access("progress");
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
-  const items = await query<Item>("select id, project, kind, text, owner, due, status from progress_items order by id");
+  const items = await query<Item>("select id, project, kind, text, owner, due, status from progress_items where company_id = $1 order by id", [ctx.branch?.company_id ?? null]);
   const day = Math.max(1, Math.ceil((nowMs() - ENGAGEMENT_START.getTime()) / 86400000));
   const canTick = ctx.session.role !== "viewer";
 

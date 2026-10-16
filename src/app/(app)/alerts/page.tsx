@@ -1,6 +1,5 @@
 import { access } from "@/lib/ctx";
 import { getConversations, qualityFlags } from "@/lib/data/conversations";
-import { sampleAlerts } from "@/lib/data/sample";
 import { checkSources } from "@/lib/health";
 import { Badge, Card, Denied, Notice, PageHeader } from "@/components/ui";
 
@@ -25,11 +24,6 @@ export default async function Alerts() {
         <table className="t"><tbody>
           {real.length === 0 && <tr><td className="soft">Nothing to report.</td></tr>}
           {real.map((a) => <tr key={a.key}><td><Badge tone={sev(a.severity)}>{a.severity}</Badge></td><td style={{ fontWeight: 500 }}>{a.source}</td><td className="soft">{a.message}</td></tr>)}
-        </tbody></table>
-      </Card>
-      <Card status="sample" title="What the alert feed will look like once failure alerts are wired">
-        <table className="t"><tbody>
-          {sampleAlerts().map((a) => <tr key={a.key}><td><Badge tone={sev(a.severity)}>{a.severity}</Badge></td><td style={{ fontWeight: 500 }}>{a.source}</td><td className="soft">{a.message}</td><td className="soft">{a.age}</td></tr>)}
         </tbody></table>
       </Card>
     </>

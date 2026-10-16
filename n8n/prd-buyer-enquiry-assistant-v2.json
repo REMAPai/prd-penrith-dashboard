@@ -1,0 +1,1564 @@
+{
+  "name": "PRD Penrith - Buyer Enquiry Assistant v2 (copy, INACTIVE)",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://ap-southeast-2.api.vaultre.com.au/api/v1.3/properties",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "modifiedSince",
+              "value": "={{ $now.minus({ days: 365 }).toISO() }}"
+            },
+            {
+              "name": "pagesize",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "page",
+                    "value": "={{ $pageCount + 1 }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ ($response.body.items || []).length === 0 }}",
+              "limitPagesFetched": true,
+              "maxRequests": 60
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "2df6a3f4-1136-4964-b507-60400fd93aab",
+      "name": "Fetch Recent Listings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4768,
+        64
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "P5UpZw3QRuNUps1q",
+          "name": "VaultRE — PRD Penrith"
+        }
+      },
+      "notes": "Listings modified in the last 120 days, roughly 10 pages. Fetched inline every run because n8n static data does not survive concurrent executions - the cache and the main flow were overwriting each other."
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "6da18797-cf9a-478c-bf6f-3784a35c3823",
+      "name": "Poll Vault for New Enquiries",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -5072,
+        64
+      ],
+      "notes": "Every 10 minutes. Volume is roughly 3 enquiries a week, so a tighter poll just burns API calls against the 10,000/day limit."
+    },
+    {
+      "parameters": {
+        "url": "https://ap-southeast-2.api.vaultre.com.au/api/v1.3/enquiries",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "modifiedSince",
+              "value": "={{ $now.minus({ days:3 }).toISO() }}"
+            },
+            {
+              "name": "pagesize",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "b9ac4bbe-7e16-447f-a69d-6433c8f09669",
+      "name": "Fetch New Vault Enquiries",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -4464,
+        64
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "P5UpZw3QRuNUps1q",
+          "name": "VaultRE — PRD Penrith"
+        }
+      },
+      "notes": "CONFIRMED endpoint. 30-minute window with the idempotency guard behind it, so a late-running execution cannot drop an enquiry."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turn the Vault enquiry poll response into one item per enquiry.\nconst res = $json;\nconst status = res.statusCode;\nif (typeof status === 'number' && status >= 300) {\n  throw new Error(`VAULT_ENQUIRY_POLL_FAILED: status ${status}`);\n}\n\nconst payload = res.body ?? res;\nconst rows = Array.isArray(payload.items) ? payload.items : [];\n\n// REA appends its own structured block to the body. Pull the signals out of it\n// and strip it from the text, so the assistant never treats \"Postcode: 2148\"\n// as something the buyer wrote.\nfunction parseBody(raw) {\n  const text = String(raw || '');\n\n  const postcode = (text.match(/Postcode:\\s*(\\d{4})/i) || [])[1] || null;\n  const marketStatus = (text.match(/Market Status:\\s*(.+)/i) || [])[1]?.trim() || null;\n  const financePreApproved = /finance pre-?approval/i.test(text);\n  const requested = (text.match(/Requested Information:\\s*([\\s\\S]*?)(?:\\n\\s*\\n|Market Status:|$)/i) || [])[1] || '';\n\n  // Everything before the first REA label is what the buyer actually typed.\n  let message = text\n    .split(/\\n\\s*Postcode:|\\n\\s*Additional information:|\\n\\s*Requested Information:|\\n\\s*Market Status:/i)[0]\n    .trim();\n\n  // If stripping left only a REA label behind, there is no buyer text at all.\n  if (/^(Postcode:|Additional information:|Requested Information:|Market Status:)/i.test(message)) {\n    message = '';\n  }\n\n  return { message, postcode, marketStatus, financePreApproved, requestedInfo: requested.trim() };\n}\n\nreturn rows.map(r => {\n  const subject = r.subject || '';\n  const propertyId = (subject.match(/Property ID:\\s*(\\d+)/) || [])[1] || null;\n  const address = (subject.match(/Property ID:\\s*\\d+,\\s*(.+?),\\s*Listing Agent/) || [])[1] || null;\n  const agentText = (subject.match(/Listing Agent\\s+(.+)$/) || [])[1] || '';\n\n  const mobile = (r.personPhoneNumbers || []).find(p => p.typeCode === 'M');\n  const anyPhone = (r.personPhoneNumbers || [])[0];\n  const parsed = parseBody(r.body);\n\n  return {\n    json: {\n      __vaultEnquiry: true,\n      enquiryId: r.id ?? null,\n      enquirySource: r.sourceName || r.source || 'Portal enquiry',\n      enquiryMessage: parsed.message || null,\n      reaPostcode: parsed.postcode,\n      reaMarketStatus: parsed.marketStatus,\n      reaFinancePreApproved: parsed.financePreApproved,\n      reaRequestedInfo: parsed.requestedInfo,\n      enquirySubject: subject,\n      enquiryDate: r.enquiryDate ?? r.inserted ?? null,\n      processed: r.processed ?? false,\n      propertyId,\n      propertyAddress: address,\n      agentText,\n      saleLifeId: r.saleLifeId ?? null,\n      leaseLifeId: r.leaseLifeId ?? null,\n      contactName: r.personName ?? null,\n      contactEmail: (r.personEmails || [])[0] ?? null,\n      contactPhone: (mobile?.number ?? anyPhone?.number) ?? null,\n      enquiryUnsubEmail: Boolean(r.unsubscribe?.email),\n      existingContactId: r.contactId ?? null\n    }\n  };\n});"
+      },
+      "id": "fd5ab6d9-fd42-4abb-9bb7-5c3d591e6710",
+      "name": "Split Vault Enquiries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4208,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalise, map the listing agent to a real Vault user, and work out\n// whether we are inside PRD office hours (Australia/Sydney).\nconst TZ = 'Australia/Sydney';\nconst BUSINESS_START = 8.5;\nconst BUSINESS_END = 17.5;\n\n// CONFIRMED Vault user IDs. All of these have sendSMS enabled.\nconst AGENTS = {\n  'thomas latty':   { id: 42787,  email: 'thomas.latty@prd.net.au' },\n  'jeremy moss':    { id: 42802,  email: 'jeremy@prd.net.au' },\n  'ryan hatch':     { id: 108932, email: 'ryan@prd.net.au' },\n  'angelina latty': { id: 168169, email: 'angelina@prd.net.au' },\n  'stella murina':  { id: 380636, email: 'stella@prd.net.au' },\n  'leonie holland': { id: 424379, email: 'admin@prd.net.au' },\n  'joe masters':    { id: 42765,  email: 'joe@prd.net.au' },\n  'cristina bartuccio': { id: 166878, email: 'cristina@prd.net.au' }\n};\n\n// Office sender for outbound SMS - an office address rather than an individual,\n// so it survives staff changes.\nconst SMS_SENDER_ID = 424379; // Leonie Holland, admin@prd.net.au\n\nconst t = DateTime.now().setZone(TZ);\nconst hour = t.hour + t.minute / 60;\nconst afterHours = t.weekday > 5 || hour < BUSINESS_START || hour >= BUSINESS_END;\nconst localTime = t.toFormat('ccc dd LLL yyyy, h:mm a');\n\n// Next time the office is staffed, so the assistant never promises \"tomorrow morning\" on a Friday night.\nfunction nextOpening(t) {\n  const open = (d) => d.set({ hour: 8, minute: 30, second: 0, millisecond: 0 });\n  let d = t;\n  if (!(t.weekday <= 5 && hour < BUSINESS_START)) {\n    d = t.plus({ days: 1 });\n    while (d.weekday > 5) d = d.plus({ days: 1 });\n  }\n  d = open(d);\n  const sameDay = d.hasSame(t, 'day');\n  const nextDay = d.hasSame(t.plus({ days: 1 }), 'day');\n  const label = sameDay ? 'this morning' : nextDay ? 'tomorrow morning' : d.toFormat('cccc') + ' morning';\n  return { iso: d.toUTC().toISO(), label };\n}\nconst nextOpen = afterHours ? nextOpening(t) : null;\nconst DEFAULT_HANDOFF = AGENTS['thomas latty'];\n// While true, handoff emails go to the REMAP tester, not real PRD agents.\nconst TEST_MODE = true;\nconst TEST_NOTIFY = 'suffyan@remap.ai';\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const src = item.json;\n\n  // Match the first named agent in the subject line against a real Vault user.\n  let agent = null;\n  const lowered = String(src.agentText || '').toLowerCase();\n  for (const [name, info] of Object.entries(AGENTS)) {\n    if (lowered.includes(name)) { agent = { name, ...info }; break; }\n  }\n\n  // REA sometimes puts the postcode field into the message (\"$2148 or a postcode?\").\n  const rawTyped = String(src.enquiryMessage || '').trim();\n  const postcodeOnly = /^(postcode\\W*)?\\$?\\d{4}\\W*(or\\W+(a\\W+)?postcode\\W*)?$/i.test(rawTyped);\n  const typed = postcodeOnly ? '' : rawTyped;\n  const optOutRequested = ['STOP', 'UNSUBSCRIBE', 'OPT OUT', 'OPTOUT']\n    .includes(typed.toUpperCase());\n\n  // Many REA enquiries carry no typed message at all - just the structured\n  // block. Say so plainly rather than passing a stray label through as if the\n  // buyer had written it.\n  let message = typed;\n  if (!message) {\n    message = src.reaRequestedInfo\n      ? `(No message typed. They asked for: ${String(src.reaRequestedInfo).replace(/\\n/g, '; ')})`\n      : '(They enquired through the portal without typing a message.)';\n  }\n\n  out.push({\n    json: {\n      conversationId: `vault_${src.enquiryId}`,\n      enquiryId: src.enquiryId,\n      externalId: String(src.enquiryId ?? ''),\n      channel: src.contactPhone ? 'sms' : 'email',\n      source: src.enquirySource,\n      message,\n      buyerTypedAMessage: Boolean(typed),\n      propertyId: src.propertyId,\n      propertyAddress: src.propertyAddress,\n      saleLifeId: src.saleLifeId,\n      reaPostcode: src.reaPostcode ?? null,\n      reaMarketStatus: src.reaMarketStatus ?? null,\n      reaFinancePreApproved: Boolean(src.reaFinancePreApproved),\n      reaRequestedInfo: src.reaRequestedInfo ?? null,\n      buyerTypeFromREA: (() => {\n        const m = String(src.reaMarketStatus || '').toLowerCase();\n        if (!m) return null;\n        if (m.includes('first home')) return 'First home buyer';\n        if (m.includes('investment')) return 'Investor';\n        if (m.includes('keep my current')) return 'Investor';\n        if (m.includes('buy and sell') || m.includes('sell property')) return 'Needs to sell first';\n        return null;\n      })(),\n      contactName: src.contactName,\n      contactPhone: src.contactPhone,\n      contactEmail: src.contactEmail,\n      existingContactId: src.existingContactId,\n      enquiryUnsubEmail: src.enquiryUnsubEmail,\n      isLease: Boolean(src.leaseLifeId),\n      enquiryDate: src.enquiryDate,\n      agentName: agent?.name ?? null,\n      agentUserId: agent?.id ?? null,\n      agentEmail: agent?.email ?? null,\n      agentAssigned: Boolean(agent),\n      handoffAgentEmail: agent?.email ?? DEFAULT_HANDOFF.email,\n      notifyEmail: TEST_MODE ? TEST_NOTIFY : (agent?.email ?? DEFAULT_HANDOFF.email),\n      nextOpenLabel: nextOpen?.label ?? null,\n      nextOpenIso: nextOpen?.iso ?? null,\n      smsSenderId: SMS_SENDER_ID,\n      optOutRequested,\n      receivedAt: new Date().toISOString(),\n      localTime,\n      afterHours\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "ac6a059c-cb5e-4cac-a60b-4d31836696bd",
+      "name": "Normalise Enquiry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3936,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Idempotency. The poll window overlaps by design, so the same enquiry arrives\n// more than once. n8n static data is unreliable across concurrent executions, so\n// we also fingerprint the message itself - the same text from the same person\n// is never answered twice.\nconst store = $getWorkflowStaticData('global');\nstore.seen = store.seen || {};\n\nconst now = Date.now();\nconst TTL_MS = 1000 * 60 * 60 * 24 * 30;\nfor (const key of Object.keys(store.seen)) {\n  if (now - store.seen[key] > TTL_MS) delete store.seen[key];\n}\n\nfunction fingerprint(s) {\n  const str = String(s || '');\n  let h = 0;\n  for (let i = 0; i < str.length; i++) {\n    h = ((h << 5) - h) + str.charCodeAt(i);\n    h |= 0;\n  }\n  return String(h);\n}\n\nconst out = [];\nconst seenThisRun = new Set();\n\nfor (const item of $input.all()) {\n  const j = item.json;\n\n  // Two guards: the enquiry id, and the content of the message itself.\n  const idKey = `enquiry:${j.enquiryId}`;\n  const msgKey = `msg:${j.contactPhone || j.contactEmail || j.enquiryId}:${fingerprint(j.message)}`;\n\n  if (store.seen[idKey] || store.seen[msgKey]) continue;\n  if (seenThisRun.has(idKey) || seenThisRun.has(msgKey)) continue;\n\n  store.seen[idKey] = now;\n  store.seen[msgKey] = now;\n  seenThisRun.add(idKey);\n  seenThisRun.add(msgKey);\n\n  out.push({ json: j });\n}\n\nreturn out;"
+      },
+      "id": "bec2287c-3e55-415c-a16d-e233681c1328",
+      "name": "Idempotency Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3680,
+        64
+      ],
+      "notes": "Static data only persists on production executions. Manual test runs will re-process the same enquiries each time - that is expected."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\n\nconst reasons = [];\nif (d.optOutRequested) reasons.push('Buyer asked to opt out');\nif (d.enquiryUnsubEmail) reasons.push('Enquiry carries an email unsubscribe flag');\nif (d.isLease) reasons.push('Leasing enquiry - outside buyer sequencing scope');\nif (!d.contactPhone && !d.contactEmail) reasons.push('No contact details supplied');\n\nif (!d.__smsReply && !d.propertyId && !d.saleLifeId) {\n  reasons.push('No property reference - not a buyer enquiry, needs a human');\n}\n\n// Belt and braces for the obvious non-buyer patterns.\nconst text = String(d.message || '').toLowerCase();\nconst notBuyerSignals = [\n  'sponsor', 'sponsorship', 'donation', 'fundraising',\n  'job application', 'resume', 'cv attached', 'seeking employment',\n  'partnership opportunity', 'seo', 'increase your traffic', 'web design services'\n];\nconst hit = notBuyerSignals.find(s => text.includes(s));\nif (hit) reasons.push(`Message looks like a non-buyer enquiry (matched \"${hit}\")`);\n\nconst safeToProceed = reasons.length === 0;\n\nreturn { json: { ...d, blockReasons: reasons, safeToProceed } };"
+      },
+      "id": "9565a76f-34e8-40ea-b49a-f70c736122e0",
+      "name": "Consent + Scope Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3424,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "q0000001-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.safeToProceed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "33e980c4-674c-4999-b79e-b08b49a96c6d",
+      "name": "Safe to Proceed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2896,
+        64
+      ],
+      "notes": "Fail-safe. Nothing reaches the assistant until this passes."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nreturn {\n  json: {\n    OUTCOME: 'STOPPED - no contact made',\n    conversationId: d.conversationId,\n    enquiryId: d.enquiryId,\n    who: d.contactName,\n    reasons: d.blockReasons,\n    stoppedAt: new Date().toISOString()\n  }\n};"
+      },
+      "id": "c07802a0-2a22-4fae-9b6d-a4c315b0e681",
+      "name": "Log & Stop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2880,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://ap-southeast-2.api.vaultre.com.au/api/v1.3/properties/{{ $json.propertyVaultId }}/sale",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "79a346e9-9576-47a9-8363-45dd1ba229b7",
+      "name": "Fetch Property",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2608,
+        48
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "P5UpZw3QRuNUps1q",
+          "name": "VaultRE — PRD Penrith"
+        }
+      },
+      "notes": "If this 404s, the next node detects it and the assistant is told it has no property facts. It will then ask which property rather than inventing anything."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Build a WHITELISTED fact sheet for the model.\n// The raw sale record carries the vendor's marketing spend, the commission rate,\n// the agent's internal price appraisal and the authority expiry date. None of\n// that may ever reach a buyer, so only the named fields below are passed through.\nconst res = $json;\nconst enquiry = $('Resolve Property from Cache').item.json;\n\n// Without a resolved Vault property ID the fetch URL is malformed and Vault\n// returns an unrelated record. Never trust the response in that case.\nconst noId = !enquiry.propertyVaultId;\nconst status = res.statusCode;\nconst fetchFailed = noId || (typeof status === 'number' && status >= 300);\nconst sale = fetchFailed ? {} : ((res.body?.items || [])[0] || {});\n\nconst isListed = sale.status === 'listing' || sale.portalStatus === 'listing';\n\n// A withdrawn, sold, leased or prospect record must never reach the model. Quoting\n// a price on a property that is no longer for sale is worse than saying nothing,\n// so we stop here and hand back no facts at all.\nif (!fetchFailed && sale.id && !isListed) {\n  return {\n    json: {\n      ...enquiry,\n      knowledgeBase: {\n        hasProperty: false,\n        hasPrice: false,\n        address: sale.displayAddress ?? enquiry.propertyAddress ?? null,\n        notCurrentlyListed: true,\n        listingStatus: sale.status ?? null,\n        openHomes: []\n      },\n      propertyFetchFailed: false\n    }\n  };\n}\n\nlet rates = null;\ntry {\n  const r = typeof sale.rates === 'string' ? JSON.parse(sale.rates) : sale.rates;\n  if (r) {\n    rates = {\n      water: r.water?.value ? `$${r.water.value} ${r.water.period}` : null,\n      council: r.council?.value ? `$${r.council.value} ${r.council.period}` : null,\n      strata: r.strata?.value ? `$${r.strata.value} ${r.strata.period}` : null\n    };\n  }\n} catch (e) { rates = null; }\n\nconst parse = (v) => {\n  try { return typeof v === 'string' ? JSON.parse(v) : v; }\n  catch (e) { return null; }\n};\n\nconst land = parse(sale.landArea);\n\nconst knowledgeBase = {\n  hasProperty: !fetchFailed && Boolean(sale.id) && isListed,\n  address: sale.displayAddress ?? enquiry.propertyAddress ?? null,\n  propertyType: parse(sale.type)?.name ?? null,\n  bedrooms: sale.bed ?? null,\n  bathrooms: sale.bath ?? null,\n  garages: sale.garages ?? null,\n  carports: sale.carports ?? null,\n  landArea: land?.value ? `${land.value} ${land.units}` : null,\n  displayPrice: sale.displayPrice ?? null,\n  heading: sale.heading ?? null,\n  description: sale.description ?? null,\n  methodOfSale: parse(sale.methodOfSale)?.name ?? null,\n  rates,\n  status: sale.status ?? null,\n  notCurrentlyListed: false,\n  // Inspection times are the single most useful thing we can give a buyer.\n  openHomes: (() => {\n    const oh = sale.openHomes ?? sale.inspectionTimes ?? [];\n    if (!Array.isArray(oh)) return [];\n    return oh.slice(0, 3).map(o => {\n      if (typeof o === 'string') return o;\n      const start = o.startTime ?? o.start ?? o.dateTime ?? null;\n      const end = o.endTime ?? o.end ?? null;\n      if (!start) return null;\n      try {\n        const s = DateTime.fromISO(String(start)).setZone('Australia/Sydney');\n        const e = end ? DateTime.fromISO(String(end)).setZone('Australia/Sydney') : null;\n        return e\n          ? `${s.toFormat('cccc d LLLL, h:mma')} - ${e.toFormat('h:mma')}`\n          : s.toFormat('cccc d LLLL, h:mma');\n      } catch (err) { return String(start); }\n    }).filter(Boolean);\n  })(),\n  priceDisplay: sale.displayPrice ?? null,\n  hasPrice: Boolean(sale.displayPrice && !/^\\s*$/.test(String(sale.displayPrice))) && isListed\n};\n\nconst rawOh = sale.openHomes ?? sale.inspectionTimes ?? [];\nconst nowMs = Date.now();\nconst slots = (Array.isArray(rawOh) ? rawOh : []).map(o => {\n  if (!o || typeof o === 'string') return null;\n  const start = o.startTime ?? o.start ?? o.dateTime ?? null;\n  if (!start) return null;\n  const s = DateTime.fromISO(String(start)).setZone('Australia/Sydney');\n  if (!s.isValid) return null;\n  const endRaw = o.endTime ?? o.end ?? null;\n  const e = endRaw ? DateTime.fromISO(String(endRaw)).setZone('Australia/Sydney') : null;\n  return { label: e && e.isValid ? `${s.toFormat('cccc d LLLL, h:mma')} - ${e.toFormat('h:mma')}` : s.toFormat('cccc d LLLL, h:mma'), startMs: s.toMillis() };\n}).filter(x => x && x.startMs > nowMs).sort((a, b) => a.startMs - b.startMs).slice(0, 6);\nknowledgeBase.openHomeSlots = slots;\nknowledgeBase.openHomesSoon = slots.filter(x => x.startMs - nowMs <= 48 * 3600 * 1000).map(x => x.label);\nif (slots.length) knowledgeBase.openHomes = slots.slice(0, 3).map(x => x.label);\n\nreturn { json: { ...enquiry, knowledgeBase, propertyFetchFailed: fetchFailed } };"
+      },
+      "id": "670709b8-64ff-418d-b050-2e60ac796b3a",
+      "name": "Build Property Fact Sheet",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2368,
+        48
+      ],
+      "notes": "The model only ever sees these named fields, never the raw Vault record."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Conversation memory, rebuilt from the Google Sheet.\n// n8n static data does not survive between executions - every buyer reply is its\n// own execution - so the sheet is the only durable record of what has already\n// been said. Each row is one turn of one conversation.\nconst rows = $input.all()\n  .map(i => i.json)\n  .filter(r => r && r.conversationId);\n\nrows.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));\n\nconst out = [];\n\nfor (const item of $('Build Property Fact Sheet').all()) {\n  const d = item.json;\n  const mine = rows.filter(r => r.conversationId === d.conversationId);\n\n  const history = [];\n  for (const r of mine) {\n    if (r.buyerMessage) history.push({ role: 'user', content: String(r.buyerMessage) });\n    if (r.assistantReply) history.push({ role: 'assistant', content: String(r.assistantReply) });\n  }\n\n  // Anything the buyer told us on an earlier turn, so we never ask twice.\n  const last = mine[mine.length - 1] || {};\n  const priorCapturedFields = {\n    buyerType: last.buyerType || null,\n    financeStatus: last.financeStatus || null,\n    needsToSellFirst: last.needsToSellFirst === 'Yes' ? true : (last.needsToSellFirst === 'No' ? false : null),\n    timeframe: last.timeframe || null,\n    inspectionInterest: last.inspection || 'not_discussed',\n    wantsContract: String(last.wantsContract).toLowerCase() === 'true'\n  };\n\n  out.push({\n    json: {\n      ...d,\n      conversationHistory: history,\n      priorCapturedFields,\n      turns: mine.length,\n      cachedContactId: last.contactId || null\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "54070be9-de20-403e-bc9d-396a35d9fca1",
+      "name": "Load Conversation State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2112,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// v2 prompt builder. Persona spec: docs/ai/receptionist-persona.md\nconst d = $json;\nconst kb = d.knowledgeBase;\nconst prior = d.priorCapturedFields || {};\nconst history = d.conversationHistory || [];\nconst turnCount = history.filter(m => m.role === 'assistant').length;\n\nconst cap = (s) => String(s || '').replace(/\\b\\w/g, c => c.toUpperCase());\nconst agentFull = d.agentName ? cap(d.agentName) : null;\nconst agentFirst = agentFull ? agentFull.split(' ')[0] : null;\nconst agentWho = agentFirst || 'one of the team';\n\n// ---- The property ----\nlet propertyBlock;\nif (kb.hasProperty) {\n  const facts = {\n    address: kb.address, type: kb.propertyType, bedrooms: kb.bedrooms, bathrooms: kb.bathrooms,\n    garages: kb.garages, carports: kb.carports, landOrInternalArea: kb.landArea,\n    priceGuide: kb.displayPrice, methodOfSale: kb.methodOfSale, outgoings: kb.rates,\n    agentsDescription: kb.description\n  };\n  propertyBlock = `THE PROPERTY THEY ENQUIRED ON\\n${JSON.stringify(facts, null, 2)}\\n\\nThese are the only property facts you may state, and you must use them.\\n- Outgoings, rates, strata -> give the real figures from \"outgoings\".\\n- \"Tell me about it\" -> describe it: bedrooms, bathrooms, parking, size, price guide, and the one or two things from the agent's description a buyer would care about.\\n- Anything genuinely not listed -> say you'll get ${agentWho} to confirm that one thing, then keep going.\\nDeferring to the agent when the answer is sitting right here is the single worst thing you can do.`;\n} else if (kb.notCurrentlyListed) {\n  propertyBlock = `They enquired on ${kb.address}, but it is no longer on the market${kb.listingStatus === 'conditional' ? ' (it is under contract)' : ''}.\\nTell them straight away and kindly. State no facts about it: no price, no bedrooms, nothing. Offer to have the team let them know about similar homes. Do not offer an inspection on this property.`;\n} else if (kb.address) {\n  propertyBlock = `They enquired on ${kb.address}, but we do not have that listing's details to hand. State NO facts about it. Acknowledge the property by address, be upfront that you'll get ${agentWho} to confirm the details, and offer to line up a look.`;\n} else {\n  propertyBlock = `No property has been matched to this enquiry. State no property facts. Ask warmly which property they were looking at.`;\n}\n\n// ---- Inspections: lead with anything inside 48 hours ----\nconst soon = Array.isArray(kb.openHomesSoon) ? kb.openHomesSoon : [];\nconst later = Array.isArray(kb.openHomes) ? kb.openHomes : [];\nlet inspectionBlock;\nif (kb.notCurrentlyListed) {\n  inspectionBlock = 'Do not offer an inspection on this one.';\n} else if (soon.length) {\n  inspectionBlock = `OPEN HOME IN THE NEXT 48 HOURS\\n${soon.map(o => `- ${o}`).join('\\n')}\\n\\nLead the inspection offer with the first of these, by day and time. Make it easy to say yes to. Also say a private viewing is possible if that time doesn't suit.`;\n} else if (later.length) {\n  inspectionBlock = `NEXT OPEN HOMES (none in the next two days)\\n${later.map(o => `- ${o}`).join('\\n')}\\n\\nOffer the next one by day and time, and mention a private viewing if sooner suits them.`;\n} else {\n  inspectionBlock = `There is no open home scheduled. Offer a private viewing. Do not invent a time. Ask which part of the week suits them and say ${agentWho} will lock one in around them.`;\n}\n\n// ---- Price ----\nconst priceBlock = !kb.hasProperty ? '' : (kb.hasPrice\n  ? `Price guide: ${kb.displayPrice}. Say it plainly if asked. Don't be cagey.`\n  : `There is no published price: the vendor hasn't set a guide yet. If they ask, say exactly that, and that ${agentWho} can talk them through where it's likely to land. Do NOT then ask their budget; that reads as dodging and fishing.`);\n\n// ---- When will a person be in touch? Never say \"tomorrow morning\" on a Friday night ----\nconst callbackWhen = d.afterHours\n  ? `The office is closed. The team is back ${d.nextOpenLabel || 'when the office opens'}. If you promise contact, use exactly that timing and nothing else.`\n  : 'The office is open, so someone can come back to them shortly.';\n\n// ---- Handoff: permission before any call or text from a person ----\nconst lastBuyer = String(d.message || '');\nconst wantsToSee = prior.inspectionInterest === 'asked_about_it' || prior.inspectionInterest === 'booked'\n  || /\\b(inspect\\w*|see (it|the (place|property|home))|view(ing)?|open home|walk ?through|come (and )?(see|look)|look (at|through) it)\\b/i.test(lastBuyer);\nlet handoffBlock = '';\nif (prior.consentOutcome === 'declined') {\n  handoffBlock = `They said no to being contacted. Respect it completely. Keep helping by text only and do not ask again.`;\n} else if (prior.consentOutcome === 'granted_call' || prior.consentOutcome === 'granted_sms') {\n  handoffBlock = `They have agreed to be contacted. Confirm in one short line what happens next (${agentWho} will be in touch ${d.afterHours ? d.nextOpenLabel || 'when the office opens' : 'shortly'}). Ask nothing else about contact.`;\n} else if (wantsToSee && !prior.consentAsked && kb.hasProperty) {\n  handoffBlock = `They want to see the property. Confirm the time you're offering, then ask ONE permission question: would it be OK for ${agentWho} to give them a quick call or text to lock it in? Word it as something that helps them, not a sales call.`;\n}\n\n// ---- Known facts and when to ask about the buyer ----\nconst knownBits = [];\nif (d.buyerTypeFromREA) knownBits.push(`They are a ${d.buyerTypeFromREA.toLowerCase()}.`);\nif (d.reaFinancePreApproved) knownBits.push('They have finance pre-approval.');\nif (prior.timeframe) knownBits.push(`Their timeframe: ${prior.timeframe}.`);\nif (prior.needsToSellFirst === true) knownBits.push('They need to sell a property first.');\nif (prior.inspectionInterest === 'booked') knownBits.push('An inspection is already agreed. The team is confirming the time.');\nif (prior.wantsContract) knownBits.push('They have asked for the contract. It is on its way.');\nconst knownBlock = knownBits.length ? `ALREADY KNOWN, never ask any of this again:\\n${knownBits.map(b => `- ${b}`).join('\\n')}` : '';\n\nconst inspectionSorted = prior.inspectionInterest === 'booked' || prior.consentOutcome === 'granted_call' || prior.consentOutcome === 'granted_sms';\nconst buyerQuestions = inspectionSorted\n  ? 'The inspection is sorted, so you may now ask ONE light question about where they are up to (finance, needing to sell first, or timing), but only if it is not already known. If they are happy with what they have, leave it.'\n  : 'Do NOT ask about finance, selling first, timing, budget, bedrooms or property type yet. Answer them and get them to an inspection first.';\n\nconst stageBlock = turnCount === 0\n  ? `This is your FIRST reply. Lead with the answer to their question about THIS property, then offer the inspection. End by saying they can reply STOP to opt out (first message only, never again).`\n  : `This is reply number ${turnCount + 1}. They already know who you are and which property it is.\\n- Don't repeat that someone will be in touch unless it is new.\\n- Don't re-state the address or mention STOP again.\\n- One or two sentences is often plenty.`;\n\nconst noMessage = d.buyerTypedAMessage === false\n  ? `\\nThe buyer did not type a message; they enquired through a portal. Treat it as \"tell me about this property\".`\n  : '';\n\nconst systemPrompt = `You are the front desk at PRD Penrith, a family-run agency that has been selling in Western Sydney since 1977. You are the first friendly voice a buyer gets, by text, on behalf of the sales team.\\n\\nWHO YOU ARE\\nWarm, local, quick, and genuinely useful, like the best person on a real estate front desk. You know the listing and you say what you know. You are an AI assistant. You never pretend to be a person, and if anyone asks whether they're talking to a bot you say so lightly and plainly (\"I'm PRD's virtual assistant, and the team is right behind me\") and carry on helping. You do not sign off with a name.\\n\\n${propertyBlock}\\n\\n${inspectionBlock}\\n\\n${priceBlock}\\n\\n${callbackWhen}\\n\\n${knownBlock}\\n\\n${handoffBlock}\\n\\n${stageBlock}${noMessage}\\n\\nTHE ORDER OF EVERY CONVERSATION\\n1. Answer what they asked about this property, properly, with the real numbers.\\n2. Get them to see it: the open home inside 48 hours if there is one, otherwise a private viewing. Make it easy to say yes.\\n3. When they want to see it, ask permission for ${agentWho} to call or text to lock it in.\\n4. Only then, and only if it helps them, one light question about where they're up to.\\n${buyerQuestions}\\n\\nHOW TO WRITE IT\\n- Contractions. Two to three short sentences. It's a text, not an email.\\n- Warm, never gushing. No \"thank you so much for your wonderful enquiry\". No emoji. No exclamation marks unless something really warrants one.\\n- Vary your openings. Not every message starts with \"Thanks for your enquiry\".\\n- Never write \"I can arrange a private inspection and the agent will confirm a suitable time\". It's stiff. Say \"Happy to line up a time to see it. Does a weekday or the weekend suit you better?\"\\n\\nGOOD, buyer asks about outgoings:\\n\"Council's about $1,820 a year, water around $870, and strata is $884 a quarter. Price guide is $469,950 to $489,950. There's an open home Saturday 11 to 11:30 if you'd like a look through.\"\\n\\nBAD, same question:\\n\"Thank you for your enquiry. One of our agents will be in touch to confirm all details including the outgoings.\"\\n\\nGOOD, Friday 8pm enquiry, open home Saturday:\\n\"It's a two-bedroom unit with a lock-up garage, 114sqm all up, freshly painted with new carpet. Open home is tomorrow 11 to 11:30 if you'd like to see it. Reply STOP any time to opt out.\"\\n\\nGOOD, buyer says yes to seeing it:\\n\"Perfect, see you Saturday at 11. Would it be OK if ${agentWho} gave you a quick call or text to confirm?\"\\n\\nTHINGS YOU MUST NEVER DO\\n- State a fact that is not in the property details above. Never estimate, guess or round up.\\n- Say \"tomorrow morning\" or \"next business morning\" unless the timing above says so.\\n- Ask what sort of property they want (bedrooms, budget, suburbs). They enquired on a specific home a vendor is paying to advertise.\\n- Ask more than one question in a message.\\n- Discuss the vendor, why they are selling or what they'll accept.\\n- Negotiate, take an offer, or give financial, legal or tax advice.\\n- If someone is upset or complaining, don't try to fix it. Acknowledge it briefly, say ${agentWho} will call them personally, and stop there.\\n- If they ask for a contract or documents, say it's being sent, and still offer the inspection.`;\n\nconst messages = [\n  ...history,\n  { role: 'user', content: d.message }\n];\n\nreturn { json: { ...d, systemPrompt, messages } };\n"
+      },
+      "id": "b52c92b6-32b1-440f-b60b-cbac9dc6b48f",
+      "name": "Build Conversation Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"gpt-4.1-mini\", max_tokens: 400, temperature: 0.8, presence_penalty: 0.6, frequency_penalty: 0.5, messages: [{ role: \"system\", content: $json.systemPrompt }, ...$json.messages] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 25000
+        }
+      },
+      "id": "ce53dfd9-31af-4b11-98f7-15efe36cc789",
+      "name": "AI Conversation Reply",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1584,
+        48
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "b0vwBfWsUqXsBqfs",
+          "name": "OpenAI account 3"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const res = $json;\nconst prev = $('Build Conversation Prompt').item.json;\n\nconst status = res.statusCode;\nif (typeof status === 'number' && status >= 300) {\n  throw new Error(`AI_CONVERSATION_FAILED: status ${status} - ${JSON.stringify(res.body)}`);\n}\n\nconst payload = res.body ?? res;\nconst reply = payload.choices?.[0]?.message?.content?.trim() || null;\n\nif (!reply) {\n  throw new Error('AI_CONVERSATION_FAILED: no message content returned');\n}\n\nconst conversationHistory = [...prev.messages, { role: 'assistant', content: reply }];\n\nreturn { json: { ...prev, reply, conversationHistory } };"
+      },
+      "id": "52470de7-045c-4796-96f3-4f72fca73049",
+      "name": "Parse AI Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        32
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"gpt-4.1-mini\", max_tokens: 500, tools: [{ type: \"function\", function: { name: \"record_buyer\", description: \"Record only what the buyer has explicitly stated or clearly implied in the transcript.\", parameters: { type: \"object\", properties: { inspectionInterest: { type: \"string\", enum: [\"booked\", \"asked_about_it\", \"offered_not_answered\", \"not_discussed\"], description: \"Where the inspection conversation got to.\" }, needsToSellFirst: { type: [\"boolean\",\"null\"], description: \"True only if they said they need to sell a property first. Null if not discussed.\" }, financeStatus: { type: [\"string\",\"null\"], enum: [\"pre_approved\", \"arranging\", \"not_started\", null], description: \"Only if stated.\" }, hasOfferedElsewhere: { type: [\"boolean\",\"null\"], description: \"True only if they said they have made an offer on another property.\" }, timeframe: { type: [\"string\",\"null\"], description: \"Any deadline or target date they mentioned, e.g. settles 2 October, needs to be in by Christmas. Null if not stated.\" }, buyerType: { type: [\"string\",\"null\"], enum: [\"first_home_buyer\", \"investor\", \"upsizer\", \"downsizer\", \"needs_to_sell_first\", null] }, wantsContract: { type: \"boolean\", description: \"True if they asked for a contract, documents or reports.\" }, consentAsked: { type: \"boolean\", description: \"True only if the assistant actually asked permission to make contact.\" }, consentOutcome: { type: \"string\", enum: [\"granted_call\", \"granted_sms\", \"declined\", \"not_answered\"] } }, required: [\"inspectionInterest\", \"needsToSellFirst\", \"financeStatus\", \"hasOfferedElsewhere\", \"timeframe\", \"buyerType\", \"wantsContract\", \"consentAsked\", \"consentOutcome\"] } } }], tool_choice: { type: \"function\", function: { name: \"record_buyer\" } }, messages: [{ role: \"user\", content: `Read this transcript between a PRD Penrith assistant and a buyer. Record ONLY what the buyer explicitly stated or clearly implied. Use null for anything they have not told us - do not guess or fill gaps.\\n\\nTRANSCRIPT:\\n` + $json.conversationHistory.map(m => m.role + ': ' + m.content).join('\\n') }] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 25000
+        }
+      },
+      "id": "5ee7c22e-9083-4fd5-a7b9-36764c05d68c",
+      "name": "Extract Qualifying Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1056,
+        16
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "b0vwBfWsUqXsBqfs",
+          "name": "OpenAI account 3"
+        }
+      },
+      "notes": "Forced function call, so the output is schema-valid every turn."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Decides whether a buyer is ready for an agent, and how warm they are.\nconst res = $json;\nconst prev = $('Parse AI Reply').item.json;\n\nlet f = {\n  inspectionInterest: 'not_discussed',\n  needsToSellFirst: null,\n  financeStatus: null,\n  hasOfferedElsewhere: null,\n  timeframe: null,\n  buyerType: null,\n  wantsContract: false,\n  consentAsked: false,\n  consentOutcome: 'not_answered'\n};\n\nconst status = res.statusCode;\nif (!(typeof status === 'number' && status >= 300)) {\n  const payload = res.body ?? res;\n  const args = payload.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;\n  if (args) {\n    try { f = { ...f, ...JSON.parse(args) }; } catch (e) { /* keep safe defaults */ }\n  }\n}\n\n// Carry forward anything learned on an earlier turn.\nconst prior = prev.priorCapturedFields || {};\nfor (const k of Object.keys(f)) {\n  if ((f[k] === null || f[k] === 'not_discussed') && prior[k] != null && prior[k] !== 'not_discussed') {\n    f[k] = prior[k];\n  }\n}\n\nif (prior.consentAsked === true) f.consentAsked = true;\nif (f.consentOutcome === 'not_answered' && prior.consentOutcome && prior.consentOutcome !== 'not_answered') f.consentOutcome = prior.consentOutcome;\n\n// REA tells us some of this without asking.\nconst buyerType = f.buyerType || (() => {\n  const t = prev.buyerTypeFromREA;\n  if (!t) return null;\n  if (t === 'First home buyer') return 'first_home_buyer';\n  if (t === 'Investor') return 'investor';\n  if (t === 'Needs to sell first') return 'needs_to_sell_first';\n  return null;\n})();\n\nconst financeStatus = f.financeStatus || (prev.reaFinancePreApproved ? 'pre_approved' : null);\n\n// HOT BUYER. Pre-approval alone is too common to mean anything on its own -\n// most REA enquiries state it. Hot needs a second signal: a real deadline, an\n// offer already made elsewhere, or an inspection actually booked.\nconst preApproved = financeStatus === 'pre_approved';\nconst hasDeadline = Boolean(f.timeframe);\nconst offeredElsewhere = f.hasOfferedElsewhere === true;\nconst inspectionBooked = f.inspectionInterest === 'booked';\n\nconst hotSignals = [hasDeadline, offeredElsewhere, inspectionBooked].filter(Boolean).length;\nconst isHot = (preApproved && hotSignals >= 1) || offeredElsewhere || (inspectionBooked && hasDeadline);\n\nconst temperature = isHot ? 'Hot' : (preApproved || hasDeadline || inspectionBooked ? 'Warm' : 'New');\n\nconst consentGranted = f.consentOutcome === 'granted_call' || f.consentOutcome === 'granted_sms';\nconst consentDeclined = f.consentOutcome === 'declined';\n\n// A buyer goes to an agent when there is something for the agent to act on:\n// an inspection to confirm, documents to send, or they have agreed to contact.\nconst readyForAgent = consentGranted\n  || inspectionBooked\n  || f.wantsContract\n  || f.inspectionInterest === 'asked_about_it'\n  || isHot;\n\n// Promise a human response time we can actually be held to.\nlet slaDueAtIso = null;\nif (readyForAgent) {\n  const base = prev.afterHours && prev.nextOpenIso ? DateTime.fromISO(prev.nextOpenIso) : DateTime.now();\n  slaDueAtIso = base.plus({ hours: 2 }).toUTC().toISO();\n}\n\nconst whyReady = [\n  consentGranted ? 'Agreed to be contacted' : null,\n  inspectionBooked ? 'Inspection to confirm' : null,\n  f.inspectionInterest === 'asked_about_it' ? 'Wants to inspect' : null,\n  f.wantsContract ? 'Asked for the contract' : null,\n  isHot ? 'Hot buyer' : null\n].filter(Boolean).join('; ');\n\nreturn {\n  json: {\n    ...prev,\n    capturedFields: { ...f, buyerType, financeStatus },\n    buyerType,\n    financeStatus,\n    temperature,\n    isHot,\n    inspectionInterest: f.inspectionInterest,\n    needsToSellFirst: f.needsToSellFirst,\n    timeframe: f.timeframe,\n    wantsContract: f.wantsContract,\n    consentGranted,\n    consentDeclined,\n    consentChannel: f.consentOutcome === 'granted_sms' ? 'SMS'\n      : f.consentOutcome === 'granted_call' ? 'Phone call' : null,\n    consentCapturedAt: consentGranted ? new Date().toISOString() : null,\n    readyForAgent,\n    handoffStatus: readyForAgent ? 'pending' : 'none',\n    slaDueAtIso,\n    whyReady: whyReady || 'Not yet',\n    turns: (prev.turns || 0) + 1\n  }\n};"
+      },
+      "id": "c87d27b4-64bb-488a-9f11-186d4e7c6b52",
+      "name": "Score Qualification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -816,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Vault exposes no contact search, so we keep our own email/phone to contactId\n// map. Without it, a returning buyer would get a duplicate record every time.\nconst store = $getWorkflowStaticData('global');\nstore.contactIndex = store.contactIndex || {};\n\nconst d = $json;\nconst keys = [\n  d.contactEmail ? `e:${String(d.contactEmail).trim().toLowerCase()}` : null,\n  d.contactPhone ? `p:${String(d.contactPhone).replace(/\\D/g, '').slice(-9)}` : null\n].filter(Boolean);\n\nlet contactId = d.existingContactId ?? d.cachedContactId ?? null;\n\nif (!contactId) {\n  for (const k of keys) {\n    const v = store.contactIndex[k];\n    if (v && v !== '__pending__') { contactId = v; break; }\n  }\n}\n\n// Reserve the keys now, so two enquiries from the same person in one batch\n// cannot both decide to create a contact.\nif (!contactId) {\n  for (const k of keys) store.contactIndex[k] = '__pending__';\n}\n\nreturn {\n  json: {\n    ...d,\n    contactId,\n    contactIndexKeys: keys,\n    needsContactCreate: !contactId\n  }\n};"
+      },
+      "id": "897fbb42-4d60-46b9-8fd8-0fb9f88b43af",
+      "name": "Resolve Vault Contact",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        16
+      ],
+      "notes": "LIMITATION: Vault has no contact search endpoint, so this only dedupes people we have seen before through this workflow. A buyer already in the database from years ago will still get a new record."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "q0000002-0000-4000-8000-000000000002",
+              "leftValue": "={{ $json.needsContactCreate }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b9a08949-a537-4f15-9bdc-ee7d3bdec396",
+      "name": "New Contact?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -288,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ap-southeast-2.api.vaultre.com.au/api/v1.3/contacts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ firstName: (($json.contactName || '').trim().split(' ')[0] || 'Unknown'), lastName: (($json.contactName || '').trim().split(' ').slice(1).join(' ') || '-'), emails: $json.contactEmail ? [$json.contactEmail] : [], phoneNumbers: $json.contactPhone ? [{ number: $json.contactPhone, typeCode: 'M', type: 'Mobile' }] : [] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "5fda1050-306f-4327-a36b-316944648a15",
+      "name": "Create Vault Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "P5UpZw3QRuNUps1q",
+          "name": "VaultRE — PRD Penrith"
+        }
+      },
+      "notes": "Schema CONFIRMED from Swagger. Name is split properly; emails and phoneNumbers are arrays."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Capture the new contact ID and remember it, so the same person is never\n// created twice by this workflow.\nconst res = $json;\nconst source = $('Resolve Vault Contact').item.json;\n\nconst status = typeof res.statusCode === 'number' ? res.statusCode : 200;\nconst payload = res.body ?? res;\nconst newId = payload?.id ?? null;\nconst failed = status >= 300 || !newId;\n\nif (!failed) {\n  const store = $getWorkflowStaticData('global');\n  store.contactIndex = store.contactIndex || {};\n  for (const k of source.contactIndexKeys) store.contactIndex[k] = newId;\n\n  store.conversations = store.conversations || {};\n  const rec = store.conversations[source.conversationId] || {};\n  rec.vaultContactId = newId;\n  store.conversations[source.conversationId] = rec;\n}\n\nreturn {\n  json: {\n    ...source,\n    contactId: newId ?? source.contactId,\n    contactCreateStatus: status,\n    contactCreateFailed: failed\n  }\n};"
+      },
+      "id": "c343b6ab-421c-44da-9bcb-06e46762ab6c",
+      "name": "Record New Contact",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "0a682556-7390-4fbc-b908-94ffad845716",
+      "name": "Contact Already Known",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        80,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const store = $getWorkflowStaticData('global');\nstore.conversations = store.conversations || {};\n\nconst d = $json;\nstore.conversations[d.conversationId] = {\n  history: d.conversationHistory,\n  capturedFields: d.capturedFields,\n  turns: d.turns,\n  vaultContactId: d.contactId ?? null,\n  updatedAt: new Date().toISOString()\n};\n\nreturn { json: d };"
+      },
+      "id": "361a0da3-49d1-4636-b110-e5ba84545833",
+      "name": "Save Conversation State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rest.clicksend.com/v3/sms/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messages: [{ source: 'n8n', from: '+61493089174', to: $json.contactPhone, body: $json.reply, custom_string: $json.conversationId }] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "5de5d1aa-3710-49fe-b74e-cbb99eac6f17",
+      "name": "Send SMS via ClickSend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        0
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "ebYO3g8i5HqdtxTi",
+          "name": "Clicksend"
+        }
+      },
+      "disabled": true,
+      "notes": "DISABLED UNTIL TESTED. Attach your ClickSend Basic Auth credential (username + API key). Set CLICKSEND_NUMBER as an env var, or replace the 'from' expression with your number in quotes. custom_string carries the conversationId so a reply can be matched back to the right thread."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "q0000003-0000-4000-8000-000000000003",
+              "leftValue": "={{ $json.readyForAgent }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b0228974-4ca5-4def-adce-5384f524baab",
+      "name": "Ready for Agent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://ap-southeast-2.api.vaultre.com.au/api/v1.3/contacts/{{ $json.contactId }}/categories",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ categories: [{ id: 57821 }] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "3b7b4423-3901-4119-b9be-bc4ceb575512",
+      "name": "Set Category - Prospective Buyers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        304
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "P5UpZw3QRuNUps1q",
+          "name": "VaultRE — PRD Penrith"
+        }
+      },
+      "notes": "57821 = Prospective Buyers. Awaiting Darren's confirmation - one-line change to Current Buyers or BUYER HIT LIST if he prefers. Body shape is a best guess; if this 400s, try { categories: [{ id: 57821 }] }."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nreturn {\n  json: {\n    OUTCOME: 'Still in conversation - not yet handed to an agent',\n    conversationId: d.conversationId,\n    who: d.contactName,\n    turns: d.turns,\n    temperature: d.temperature ?? 'New',\n    inspection: d.inspectionInterest ?? 'not_discussed',\n    stillNeeded: d.consentDeclined ? 'Buyer declined contact' : 'An inspection, a contract request, or permission to contact'\n  }\n};"
+      },
+      "id": "81a31c97-454b-4ff4-a4fd-911e23dcfe96",
+      "name": "Keep Nurturing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nreturn {\n  json: {\n    ALERT: 'AI step failed on a live enquiry - no reply was sent',\n    conversationId: d.conversationId ?? 'unknown',\n    enquiryId: d.enquiryId ?? 'unknown',\n    who: d.contactName ?? 'unknown',\n    phone: d.contactPhone ?? 'n/a',\n    email: d.contactEmail ?? 'n/a',\n    action: 'Manual follow-up needed',\n    at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "7f65f0f9-7b7c-41de-a971-cf300108bf66",
+      "name": "Alert - AI Step Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1520,
+        384
+      ],
+      "notes": "Point this at a Teams webhook once Darren supplies one."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\n\nlet rows = [];\ntry {\n  const fetched = $items('Fetch Recent Listings') || [];\n  for (const item of fetched) {\n    const payload = item.json.body ?? item.json;\n    if (Array.isArray(payload.items)) rows.push(...payload.items);\n    else if (Array.isArray(payload)) rows.push(...payload);\n    else if (payload.id) rows.push(payload);\n  }\n} catch (e) {\n  rows = [];\n}\n\nconst index = {};\nfor (const p of rows) {\n  if (!p || !p.id) continue;\n  const addr = p.address || {};\n  const facts = {\n    id: p.id,\n    displayAddress: p.displayAddress || null,\n    suburb: addr.suburb?.name ?? null,\n    suburbId: addr.suburb?.id ?? null,\n    postcode: addr.suburb?.postcode ?? null,\n    saleLifeId: p.saleLifeId ?? null\n  };\n  if (p.saleLifeId) index[`sale:${p.saleLifeId}`] = facts;\n  if (p.displayAddress) {\n    const key = p.displayAddress.toLowerCase().replace(/[^a-z0-9]/g, '');\n    index[`addr:${key}`] = facts;\n  }\n}\n\nconst norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');\n\nlet match = null;\nlet matchedOn = null;\nlet verified = false;\nlet rejectReason = null;\n\n// A reply already knows its property from the original conversation.\nif (d.__smsReply && d.propertyVaultId) {\n  return {\n    json: {\n      ...d,\n      propertyMatchedOn: 'carried from conversation',\n      propertyMatchRejected: null,\n      listingsLoaded: rows.length\n    }\n  };\n}\n\nif (d.saleLifeId && index[`sale:${d.saleLifeId}`]) {\n  match = index[`sale:${d.saleLifeId}`];\n  matchedOn = 'saleLifeId';\n}\n\nif (!match && d.propertyAddress) {\n  const key = norm(d.propertyAddress);\n  if (index[`addr:${key}`]) {\n    match = index[`addr:${key}`];\n    matchedOn = 'address';\n  } else {\n    const prefix = key.slice(0, 30);\n    const hit = Object.keys(index).find(k => k.startsWith(`addr:${prefix}`));\n    if (hit) { match = index[hit]; matchedOn = 'address-prefix'; }\n  }\n}\n\nif (match) {\n  if (d.propertyAddress && match.displayAddress) {\n    const a = norm(d.propertyAddress);\n    const b = norm(match.displayAddress);\n    verified = a.startsWith(b.slice(0, 20)) || b.startsWith(a.slice(0, 20));\n    if (!verified) rejectReason = 'Enquiry address does not match the listing address';\n  } else if (!d.propertyAddress) {\n    rejectReason = 'No address on the enquiry to confirm the match against';\n  }\n}\n\nreturn {\n  json: {\n    ...d,\n    propertyVaultId: verified ? match.id : (d.propertyVaultId ?? null),\n    propertyMatchedOn: verified ? matchedOn : null,\n    propertyMatchRejected: rejectReason,\n    listingsLoaded: rows.length\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3184,
+        64
+      ],
+      "id": "18d44286-8e80-406c-b518-a4fdf90cef22",
+      "name": "Resolve Property from Cache"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1C8Ve0F_NSq4w287zL65zVB3pqfqTiejeQNxVNeZQXJY",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Conversations",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "63ae39dd-ffb1-4b44-867d-d32102ab840c",
+      "name": "Write to Conversation Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        544,
+        928
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "OztJBwLUhK3wzK1z",
+          "name": "Conversation sheet"
+        }
+      },
+      "notes": "Appends one row per turn. Attach your Google Sheets credential. Change sheetName if the tab is not called Sheet1."
+    },
+    {
+      "parameters": {
+        "url": "https://ap-southeast-2.api.vaultre.com.au/api/v1.3/messages/sent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "60a9b25a-5502-481b-b338-97a9f0bd1346",
+      "name": "Vault Sent Messages Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -3488,
+        512
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "P5UpZw3QRuNUps1q",
+          "name": "VaultRE — PRD Penrith"
+        }
+      },
+      "notes": "Vault's own record of messages sent from this account. Returns totalItems: 0, which is the evidence nothing was sent."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sms-reply-v2",
+        "options": {}
+      },
+      "id": "37d46042-035e-4b94-8dc6-52df5423954f",
+      "name": "Buyer SMS Reply",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "webhookId": "c3f95f98-7f5e-49e2-a631-05e7f98e4766",
+      "position": [
+        -5264,
+        448
+      ],
+      "notes": "Point ClickSend's inbound SMS rule at this URL. In ClickSend: SMS > Inbound Rules > new rule > Action: URL."
+    },
+    {
+      "parameters": {
+        "jsCode": "// A buyer has replied by SMS. Work out which conversation it belongs to using\n// the sheet, then shape it exactly like an enquiry so the rest of the flow is\n// unchanged. The sheet is used rather than n8n static data because static data\n// does not survive between executions, and every reply is its own execution.\nconst TZ = 'Australia/Sydney';\nconst t = DateTime.now().setZone(TZ);\nconst hour = t.hour + t.minute / 60;\nconst afterHours = t.weekday > 5 || hour < 8.5 || hour >= 17.5;\n\nconst rows = $input.all().map(i => i.json).filter(r => r && r.conversationId);\nrows.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));\n\nconst digits = (s) => String(s || '').replace(/\\D/g, '').slice(-9);\n\nconst inbound = $('Buyer SMS Reply').all().map(i => i.json);\n\nconst out = [];\n\nfor (const raw of inbound) {\n  const b = raw.body ?? raw;\n\n  const from = String(b.from ?? b.sender ?? '').trim();\n  const text = String(b.message ?? b.body ?? b.text ?? '').trim();\n  const tag = String(b.custom_string ?? '').trim();\n\n  if (!from || !text) continue;\n\n  const last9 = digits(from);\n\n  // Prefer the tag sent out with the message. Fall back to the most recent\n  // conversation for that phone number.\n  let rec = null;\n\n  if (tag) {\n    const tagged = rows.filter(r => r.conversationId === tag);\n    if (tagged.length) rec = tagged[tagged.length - 1];\n  }\n\n  if (!rec) {\n    const byPhone = rows.filter(r => digits(r.phone) === last9);\n    if (byPhone.length) rec = byPhone[byPhone.length - 1];\n  }\n\n  // The property was resolved on the first turn and written to the sheet. Carry\n  // it forward - a reply never passes through the listings fetch, so there is\n  // nothing to resolve against.\n  const mine = rec ? rows.filter(r => r.conversationId === rec.conversationId) : [];\n  const withProp = [...mine].reverse().find(r => r.propertyVaultId);\n\n  out.push({\n    json: {\n      __smsReply: true,\n      conversationId: rec?.conversationId || `sms_${last9}`,\n      enquiryId: rec?.enquiryId || null,\n      externalId: String(b.message_id ?? ''),\n      channel: 'sms',\n      source: rec?.source || 'SMS reply',\n      message: text,\n      buyerTypedAMessage: true,\n      propertyId: null,\n      propertyAddress: rec?.property || null,\n      saleLifeId: withProp?.saleLifeId || null,\n      propertyVaultId: withProp?.propertyVaultId || null,\n      contactName: rec?.buyer || null,\n      contactPhone: from,\n      contactEmail: rec?.email || null,\n      existingContactId: rec?.contactId || null,\n      enquiryUnsubEmail: false,\n      isLease: false,\n      enquiryDate: null,\n      reaPostcode: null,\n      reaMarketStatus: null,\n      reaFinancePreApproved: rec?.financeStatus === 'pre_approved',\n      reaRequestedInfo: null,\n      buyerTypeFromREA: null,\n      agentName: rec?.agent || null,\n      agentUserId: withProp?.agentUserId || null,\n      agentEmail: withProp?.agentEmail || null,\n      smsSenderId: 424379,\n      optOutRequested: ['STOP', 'UNSUBSCRIBE', 'OPT OUT', 'OPTOUT'].includes(text.toUpperCase()),\n      matchedConversation: Boolean(rec),\n      receivedAt: new Date().toISOString(),\n      localTime: t.toFormat('ccc dd LLL yyyy, h:mm a'),\n      afterHours\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "f0882042-9f54-4a26-a90c-d81e339b8327",
+      "name": "Match Reply to Conversation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4960,
+        432
+      ],
+      "notes": "Works out which conversation a reply belongs to, using the tag sent with the outbound message, falling back to the phone number."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// One row per conversation turn, for the dashboard and for conversation memory.\nconst d = $json;\n\nconst lastAssistant = [...(d.conversationHistory || [])]\n  .reverse().find(m => m.role === 'assistant');\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    localTime: d.localTime ?? '',\n    conversationId: d.conversationId ?? '',\n    enquiryId: d.enquiryId ?? '',\n    buyer: d.contactName ?? '',\n    phone: d.contactPhone ?? '',\n    email: d.contactEmail ?? '',\n    property: d.propertyAddress ?? '',\n    hadPropertyRecord: d.knowledgeBase?.hasProperty ?? false,\n    source: d.source ?? '',\n    channel: d.channel ?? '',\n    agent: d.agentName ?? '',\n    afterHours: d.afterHours ?? '',\n    turn: d.turns ?? 1,\n    buyerMessage: d.message ?? '',\n    assistantReply: d.reply ?? (lastAssistant?.content ?? ''),\n    temperature: d.temperature ?? 'New',\n    buyerType: d.buyerType ?? '',\n    financeStatus: d.financeStatus ?? '',\n    needsToSellFirst: d.needsToSellFirst === true ? 'Yes' : (d.needsToSellFirst === false ? 'No' : ''),\n    timeframe: d.timeframe ?? '',\n    inspection: d.inspectionInterest ?? '',\n    wantsContract: d.wantsContract ?? false,\n    consent: d.consentGranted\n      ? `Yes - ${d.consentChannel}`\n      : (d.consentDeclined ? 'Declined' : 'Not yet asked'),\n    readyForAgent: d.readyForAgent ?? false,\n    whyReady: d.whyReady ?? '',\n    contactId: d.contactId ?? '',\n    blocked: Array.isArray(d.blockReasons) && d.blockReasons.length ? d.blockReasons.join('; ') : '',\n    // Carried so a later reply can find the same property without re-resolving it.\n    propertyVaultId: d.propertyVaultId ?? '',\n    saleLifeId: d.saleLifeId ?? '',\n    agentUserId: d.agentUserId ?? '',\n    agentEmail: d.agentEmail ?? '',\n    handoffStatus: d.handoffStatus ?? 'none',\n    slaDueAt: d.slaDueAtIso ?? null,\n    buyerAt: d.receivedAt ?? new Date().toISOString(),\n    replyAt: new Date().toISOString()\n  }\n};"
+      },
+      "id": "d50eb74d-ca3a-40f0-b194-a4e9233fd130",
+      "name": "Activity Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        928
+      ],
+      "notes": "Flattens each turn into one row for the conversation sheet."
+    },
+    {
+      "parameters": {
+        "toRecipients": "={{ $('Save Conversation State').item.json.notifyEmail }}",
+        "subject": "={{ $('Save Conversation State').item.json.temperature }} buyer - {{ $('Save Conversation State').item.json.contactName }} - {{ $('Save Conversation State').item.json.propertyAddress || 'property not identified' }}",
+        "bodyContent": "={{ (() => { const d = $('Save Conversation State').item.json; return `A buyer enquiry needs your attention.\n\nWhy: ${d.whyReady}\n\nName: ${d.contactName || 'not given'}\nPhone: ${d.contactPhone || 'not given'}\nEmail: ${d.contactEmail || 'not given'}\nEnquired on: ${d.propertyAddress || 'not identified'}\nListing agent: ${d.agentName || 'unassigned'}\nSource: ${d.source}\nReceived: ${d.localTime}\\nReply to the buyer by: ${d.slaDueAtIso ? new Date(d.slaDueAtIso).toLocaleString('en-AU', { timeZone: 'Australia/Sydney', weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'as soon as you can'}\n\nWHAT WE KNOW\nBuyer type: ${d.buyerType || 'not established'}\nFinance: ${d.financeStatus || 'not stated'}\nNeeds to sell first: ${d.needsToSellFirst === true ? 'Yes' : (d.needsToSellFirst === false ? 'No' : 'Not stated')}\nTimeframe: ${d.timeframe || 'not stated'}\nInspection: ${d.inspectionInterest}\nAsked for contract: ${d.wantsContract ? 'Yes' : 'No'}\n\nConsent: ${d.consentGranted ? 'Yes - ' + d.consentChannel : 'Not yet given'}\n\nWHAT THEY ASKED\n${d.message}\n\nWHAT WE REPLIED\n${d.reply}\n\nVault contact: ${d.contactId}\nEnquiry ref: ${d.enquiryId}`; })() }}",
+        "additionalFields": {}
+      },
+      "id": "99ac906f-d923-4f02-b2a8-f164f317a93f",
+      "name": "Notify Listing Agent",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        304
+      ],
+      "webhookId": "343bcac3-57dc-43a8-8d8e-675d1f00a5d6",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "oef7AxQMmx4uv9gv",
+          "name": "Microsoft Outlook account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.reply }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        392.88928056814075,
+        0
+      ],
+      "id": "66d78f7c-b676-46d6-926d-20ad5761187c",
+      "name": "Chat",
+      "webhookId": "1b4eb7ab-7ac4-4197-88fb-5ba1277b5364"
+    },
+    {
+      "id": "221ac152-15ae-46b3-bdf8-ac43fd2ae36e",
+      "name": "Test Chat (pretend to be a buyer)",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -5264,
+        736
+      ],
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        },
+        "public": false
+      },
+      "webhookId": "b862397e-73e5-45e7-9cd1-5d66b5fe4be8"
+    },
+    {
+      "id": "2e3ace53-ef4e-4b97-a94c-75883bada6f7",
+      "name": "Look Up Conversation (chat)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -4980,
+        736
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1C8Ve0F_NSq4w287zL65zVB3pqfqTiejeQNxVNeZQXJY"
+        },
+        "options": {},
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Conversations"
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "OztJBwLUhK3wzK1z",
+          "name": "Conversation sheet"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "2901976a-bd86-4ce3-a9f8-f3fec347c93e",
+      "name": "Shape Chat as Buyer Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4700,
+        736
+      ],
+      "parameters": {
+        "jsCode": "// Test harness. Lets a human type as the buyer so the conversation can be\n// exercised end to end without sending a real text message.\n// Prefix a message with [conversationId] to choose which buyer you are.\nconst TZ = 'Australia/Sydney';\nconst t = DateTime.now().setZone(TZ);\nconst hour = t.hour + t.minute / 60;\nconst afterHours = t.weekday > 5 || hour < 8.5 || hour >= 17.5;\n\nconst rows = $input.all().map(i => i.json).filter(r => r && r.conversationId);\nrows.sort((a, b) => String(a.timestamp || '').localeCompare(String(b.timestamp || '')));\n\nconst out = [];\n\nfor (const item of $('Test Chat (pretend to be a buyer)').all()) {\n  let text = String(item.json.chatInput ?? '').trim();\n  const sessionId = String(item.json.sessionId ?? '');\n\n  let wanted = null;\n  const tagMatch = text.match(/^\\s*\\[([^\\]]+)\\]\\s*/);\n  if (tagMatch) {\n    wanted = tagMatch[1].trim();\n    text = text.slice(tagMatch[0].length).trim();\n  }\n\n  let rec = null;\n  if (wanted) {\n    const m = rows.filter(r => r.conversationId === wanted);\n    if (m.length) rec = m[m.length - 1];\n  }\n  if (!rec && rows.length) rec = rows[rows.length - 1];\n\n  if (!text) continue;\n\n  // The property was resolved on the first turn and written to the sheet.\n  // Carry it forward rather than resolving again - a reply never passes through\n  // the listings fetch, so there is nothing to resolve against.\n  const mine = rec ? rows.filter(r => r.conversationId === rec.conversationId) : [];\n  const withProp = [...mine].reverse().find(r => r.propertyVaultId);\n\n  out.push({\n    json: {\n      __smsReply: true,\n      __testChat: true,\n      chatSessionId: sessionId,\n      conversationId: rec?.conversationId || `chat_${sessionId}`,\n      enquiryId: rec?.enquiryId || null,\n      externalId: sessionId,\n      channel: 'sms',\n      source: rec?.source || 'Test chat',\n      message: text,\n      buyerTypedAMessage: true,\n      propertyId: null,\n      propertyAddress: rec?.property || null,\n      saleLifeId: withProp?.saleLifeId || null,\n      propertyVaultId: withProp?.propertyVaultId || null,\n      contactName: rec?.buyer || 'Test Buyer',\n      contactPhone: rec?.phone || '0400000000',\n      contactEmail: rec?.email || null,\n      existingContactId: rec?.contactId || null,\n      enquiryUnsubEmail: false,\n      isLease: false,\n      enquiryDate: null,\n      reaPostcode: null,\n      reaMarketStatus: null,\n      reaFinancePreApproved: rec?.financeStatus === 'pre_approved',\n      reaRequestedInfo: null,\n      buyerTypeFromREA: null,\n      agentName: rec?.agent || null,\n      agentUserId: withProp?.agentUserId || null,\n      agentEmail: withProp?.agentEmail || null,\n      smsSenderId: 424379,\n      optOutRequested: ['STOP', 'UNSUBSCRIBE', 'OPT OUT', 'OPTOUT'].includes(text.toUpperCase()),\n      matchedConversation: Boolean(rec),\n      receivedAt: new Date().toISOString(),\n      localTime: t.toFormat('ccc dd LLL yyyy, h:mm a'),\n      afterHours\n    }\n  });\n}\n\nreturn out;"
+      }
+    },
+    {
+      "id": "b66b88af-33b2-478e-b329-13f6bda12452",
+      "name": "Read Conversation History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2240,
+        208
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1C8Ve0F_NSq4w287zL65zVB3pqfqTiejeQNxVNeZQXJY"
+        },
+        "options": {},
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Conversations"
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "OztJBwLUhK3wzK1z",
+          "name": "Conversation sheet"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "17b58a1f-c2e1-424d-aa46-ef782bd91a6b",
+      "name": "Claim Turn (dashboard DB)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2800,
+        -220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://prd.remap.ai/api/ingest/claim",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ conversationId: $json.conversationId, message: $json.message }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 8000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_ME",
+          "name": "PRD ingest key"
+        }
+      }
+    },
+    {
+      "id": "47e345ec-4dc1-4f37-934f-efa27791ba0e",
+      "name": "Evaluate Claim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2600,
+        -220
+      ],
+      "parameters": {
+        "jsCode": "// Fail open: if the dashboard store is unreachable we still answer (the static-data guard\n// upstream remains), but a confirmed duplicate claim stops the run.\nconst src = $('Safe to Proceed?').item.json;\nconst r = $json;\nconst status = r.statusCode;\nconst duplicate = status === 200 && r.body && r.body.claimed === false;\nreturn {\n  json: {\n    ...src,\n    claimed: !duplicate,\n    claimVerified: status === 200,\n    blockReasons: duplicate\n      ? [...(src.blockReasons || []), 'Duplicate trigger: this message was already answered']\n      : (src.blockReasons || [])\n  }\n};\n"
+      }
+    },
+    {
+      "id": "2151f6e0-b813-4a23-8120-f88593121ca3",
+      "name": "Claimed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2400,
+        -220
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6885309e-ca75-4ee0-8c24-10e484cd41bb",
+              "leftValue": "={{ $json.claimed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c5dcc0b4-c13d-446e-815a-008189884076",
+      "name": "Outbound Gate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        776,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Outbound is held until PRD approves. Flip OUTBOUND_LIVE only on written approval\n// (and set OUTBOUND_SENDING_LIVE=true in the dashboard so it shows the truth).\n// While held, only numbers on ALLOWLIST can receive a real SMS, e.g. Thomas's test phone.\nconst OUTBOUND_LIVE = false;\nconst ALLOWLIST = []; // E.164, e.g. '+614XXXXXXXX'\n\nconst d = $json;\nconst to = String(d.contactPhone || '').replace(/\\s+/g, '');\nconst allowed = OUTBOUND_LIVE || ALLOWLIST.includes(to);\nif (!allowed || d.optOutRequested) return [];\nreturn { json: d };\n"
+      }
+    },
+    {
+      "id": "d279ce7a-1377-40c3-bcb8-58237afc32c1",
+      "name": "Shape Turn for Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        150,
+        1100
+      ],
+      "parameters": {
+        "jsCode": "// Maps the Activity Log row to the dashboard ingest schema (src/lib/data/ingest.ts).\nconst j = $json;\nconst iso = (v) => { const t = new Date(v); return isNaN(t) ? null : t.toISOString(); };\nconst nowIso = new Date().toISOString();\nreturn {\n  json: {\n    conversationId: String(j.conversationId || ''),\n    enquiryId: String(j.enquiryId || ''),\n    buyer: String(j.buyer || ''),\n    phone: String(j.phone || ''),\n    email: String(j.email || ''),\n    property: String(j.property || ''),\n    source: String(j.source || ''),\n    agent: String(j.agent || ''),\n    temperature: ['Hot', 'Warm', 'New'].includes(j.temperature) ? j.temperature : 'New',\n    buyerType: String(j.buyerType || ''),\n    financeStatus: String(j.financeStatus || ''),\n    needsToSellFirst: String(j.needsToSellFirst || ''),\n    timeframe: String(j.timeframe || ''),\n    inspection: String(j.inspection || 'not_discussed'),\n    wantsContract: Boolean(j.wantsContract),\n    consent: String(j.consent || ''),\n    readyForAgent: Boolean(j.readyForAgent),\n    whyReady: String(j.whyReady || ''),\n    handoffStatus: ['none', 'pending', 'done'].includes(j.handoffStatus) ? j.handoffStatus : 'none',\n    slaDueAt: iso(j.slaDueAt),\n    afterHours: j.afterHours === true,\n    blocked: String(j.blocked || ''),\n    turn: Number(j.turn) || 1,\n    buyerMessage: String(j.buyerMessage || ''),\n    assistantReply: String(j.assistantReply || ''),\n    buyerAt: iso(j.buyerAt) || nowIso,\n    replyAt: iso(j.replyAt) || nowIso\n  }\n};\n"
+      }
+    },
+    {
+      "id": "ee4acf0f-3688-4d2e-b55b-13e8225d3410",
+      "name": "Store Turn (dashboard DB)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        1100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://prd.remap.ai/api/ingest/turn",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SET_ME",
+          "name": "PRD ingest key"
+        }
+      }
+    },
+    {
+      "id": "23fcef39-6031-4471-8a03-91c0a198fcc8",
+      "name": "Email - AI Step Failed",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        384
+      ],
+      "parameters": {
+        "toRecipients": "suffyan@remap.ai",
+        "subject": "=ALERT: AI step failed for {{ $json.who }} ({{ $json.conversationId }})",
+        "bodyContent": "={{ 'No reply was sent. Manual follow-up needed.\\n\\nBuyer: ' + $json.who + '\\nPhone: ' + $json.phone + '\\nEmail: ' + $json.email + '\\nConversation: ' + $json.conversationId + '\\nAt: ' + $json.at }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "oef7AxQMmx4uv9gv",
+          "name": "Microsoft Outlook account 3"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Fetch Recent Listings": {
+      "main": [
+        [
+          {
+            "node": "Fetch New Vault Enquiries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Vault for New Enquiries": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Listings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch New Vault Enquiries": {
+      "main": [
+        [
+          {
+            "node": "Split Vault Enquiries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Vault Enquiries": {
+      "main": [
+        [
+          {
+            "node": "Normalise Enquiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalise Enquiry": {
+      "main": [
+        [
+          {
+            "node": "Idempotency Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idempotency Guard": {
+      "main": [
+        [
+          {
+            "node": "Consent + Scope Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consent + Scope Check": {
+      "main": [
+        [
+          {
+            "node": "Resolve Property from Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safe to Proceed?": {
+      "main": [
+        [
+          {
+            "node": "Claim Turn (dashboard DB)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log & Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Property": {
+      "main": [
+        [
+          {
+            "node": "Build Property Fact Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Conversation State": {
+      "main": [
+        [
+          {
+            "node": "Build Conversation Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Conversation Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI Conversation Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Conversation Reply": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert - AI Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Reply": {
+      "main": [
+        [
+          {
+            "node": "Extract Qualifying Fields",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert - AI Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Qualifying Fields": {
+      "main": [
+        [
+          {
+            "node": "Score Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Qualification": {
+      "main": [
+        [
+          {
+            "node": "Resolve Vault Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Vault Contact": {
+      "main": [
+        [
+          {
+            "node": "New Contact?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Contact?": {
+      "main": [
+        [
+          {
+            "node": "Create Vault Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Contact Already Known",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Vault Contact": {
+      "main": [
+        [
+          {
+            "node": "Record New Contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record New Contact": {
+      "main": [
+        [
+          {
+            "node": "Save Conversation State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Already Known": {
+      "main": [
+        [
+          {
+            "node": "Save Conversation State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Conversation State": {
+      "main": [
+        [
+          {
+            "node": "Outbound Gate",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ready for Agent?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Activity Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready for Agent?": {
+      "main": [
+        [
+          {
+            "node": "Set Category - Prospective Buyers",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Keep Nurturing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Property from Cache": {
+      "main": [
+        [
+          {
+            "node": "Safe to Proceed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buyer SMS Reply": {
+      "main": [
+        [
+          {
+            "node": "Match Reply to Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Reply to Conversation": {
+      "main": [
+        [
+          {
+            "node": "Consent + Scope Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Activity Log": {
+      "main": [
+        [
+          {
+            "node": "Write to Conversation Log",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Shape Turn for Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Category - Prospective Buyers": {
+      "main": [
+        [
+          {
+            "node": "Notify Listing Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Chat (pretend to be a buyer)": {
+      "main": [
+        [
+          {
+            "node": "Look Up Conversation (chat)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look Up Conversation (chat)": {
+      "main": [
+        [
+          {
+            "node": "Shape Chat as Buyer Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Chat as Buyer Reply": {
+      "main": [
+        [
+          {
+            "node": "Consent + Scope Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Property Fact Sheet": {
+      "main": [
+        [
+          {
+            "node": "Read Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Conversation History": {
+      "main": [
+        [
+          {
+            "node": "Load Conversation State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Turn (dashboard DB)": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Claim": {
+      "main": [
+        [
+          {
+            "node": "Claimed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claimed?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Property",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log & Stop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Outbound Gate": {
+      "main": [
+        [
+          {
+            "node": "Send SMS via ClickSend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Turn for Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Store Turn (dashboard DB)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert - AI Step Failed": {
+      "main": [
+        [
+          {
+            "node": "Email - AI Step Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

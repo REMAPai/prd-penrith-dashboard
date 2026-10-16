@@ -79,7 +79,7 @@ Sidebar groups:
 
 **Departments**
 - Sales: Buyer Sequencing (Live), Listings and Demand
-- Site Acquisition: Development Pipeline (Live/Prototype), Map
+- Site Acquisition: Development Playbook (Live/Prototype), Map
 - Project Marketing: Projects and Stock, Meta Lead Funnel
 - Property Management (Planned)
 - Commercial (Planned)
@@ -109,18 +109,20 @@ Purpose: neutralise the "we can't see progress" complaint.
 KPI row: enquiries (7d), median first-response time, qualified buyers, Hot buyers handed over, sites in pipeline, project stock available, Meta leads this week vs target. Below: pipeline funnel (site to sale), enquiry trend, top suburbs by demand, alerts, revenue/expenses/forecast (Sample, ribbon on).
 
 ### 4.3 Buyer Sequencing (Live)
-Tabs: Conversations, Funnel, Handovers, Quality, Settings.
-- **Conversations:** table from the conversation log: time, buyer (name, masked phone), property, source (REA/Domain/website/Meta), classification (Hot/Warm/New), status (replying, handed over, stopped, escalated, opted out), agent. Click opens a thread drawer with both sides, extracted fields, consent, reason for handover, and Vault contact link. Filters: classification, source, agent, date, test vs real. Real vs test is a column and filter; test conversations carry a "Test" tag and are excluded by default.
-- **Funnel:** enquiries, in-scope, replied, buyer responded, inspection offered/booked, handed over, in Vault. Median and 90th percentile response time; after-hours share.
-- **Handovers:** per agent queue with age and "why escalated"; mark contacted (feeds a feedback loop on quality).
-- **Quality:** flags from automatic checks (duplicate reply, postcode-as-message, price quoted on non-live listing, preference question asked, empty reply) with counts and examples. Re-runs the NFR-QUAL-01 regression set status.
-- **Settings (read-only for PRD):** scope rules, hours, hot-buyer definition (editable by Principal once confirmed).
-- Source: external conversation store (n8n log), Vault API (listings, contact creation status), ClickSend (delivery). Badge Live per source; if outbound is still held, show "Outbound send: held" amber chip.
+Update 2026-10-16: the page is a daily ledger, replacing the earlier Conversations, Funnel, Handovers and Quality tabs (Darren wants to see every buyer and every reply, by day).
+- **Tabs:** one tab per day that has at least one buyer message, newest day first and opened by default (labelled "latest"), then **All Data** last. A day runs midnight to midnight Sydney time. A new day's tab appears automatically on the first message of that day.
+- **List (each tab):** first message time (All Data: last message), buyer, property, source, buyer type (Hot, Warm, New), inspection, status (assistant replying, or with the named agent). A buyer who writes on two days appears in both day tabs and once in All Data. Inside a day, buyers are ordered oldest first; All Data is newest first.
+- **Buyer page** (click a name, `/buyer/<conversation id>`): phone and email (masked until revealed; revealing is audited), buyer type, whether the assistant found a record for the property in Vault, source, inspection, handled-by agent name and email, why handed over, and the whole conversation as chat bubbles (buyer left, assistant right, each with date and time).
+- **Source:** the dashboard database, written by n8n on every turn (`POST /api/ingest/turn`, which now also carries `agentEmail` and `hadPropertyRecord`). Badge Live; if outbound is still held, show the "Outbound sending is held" notice.
+- **Not on this page now:** funnel, quality flags, per-agent handover queue with "mark contacted", and settings. They are not deleted from the plan; the quality-flag code remains in `src/lib/data/conversations.ts`.
 
 ### 4.4 Listings and Demand
 Active listings from Vault with enquiries per listing (7/30 days), response time, Hot count, days on market, price band, open home next. Heat colouring. Source: Vault sale-life records + conversation log. Live when Vault key is connected; Sample until then.
 
-### 4.5 Development Pipeline (site detection to sale)
+### 4.5 Development Playbook (site detection to sale; was Development Pipeline)
+
+Update 2026-10-09: the page mirrors the Developer_playbook sheet week by week (week bar above the board, a compact table, a Companies tab and a Data-not-in-the-sheet tab). Zoning shown is the value in the sheet, with its source. The rest of this section is the original design.
+
 Kanban plus table plus timeline views. Stages (configurable):
 1. Detected (DA/CDC/listing signal)
 2. Qualified (zoning confirmed plus second signal)
@@ -197,7 +199,7 @@ Table of sources: Vault, ClickSend, n8n log, Meta, Google Sheets (projects, Meta
 | `exec` | other directors | everything | view, comment |
 | `sales_agent` | agents | Buyer Sequencing (own handovers and all conversations read), Listings, Pipeline read | mark contacted, feedback |
 | `marketing` | Thomas, Thea | Project Marketing, Meta funnel, Pipeline, Buyer Sequencing | edit pipeline, tasks, promote leads |
-| `acquisitions` | Darren, Thomas | Development Pipeline, Map | move stages, confirm zoning, edit criteria |
+| `acquisitions` | Darren, Thomas | Development Playbook, Map | move stages, confirm zoning, edit criteria |
 | `ops` | Lily | Data Sources, Users (PRD), Alerts | manage access, acknowledge alerts |
 | `remap_admin` | Hamza, Irfan, Suffyan | everything incl. technical logs | configure, connect sources, user admin |
 | `viewer` | read-only guests | Delivery Progress, Overview | none |

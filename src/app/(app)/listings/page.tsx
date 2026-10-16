@@ -11,7 +11,7 @@ export default async function Listings() {
   const res = await getListings(ctx.branch.id, convos.data);
   const rows = res.data.slice().sort((a, b) => b.enquiries30 - a.enquiries30);
   const st = res.status;
-  const demandNote = convos.status === "live" ? "Enquiry counts come from the conversation log." : "Enquiry counts are sample until the conversation log is connected.";
+  const demandNote = convos.status === "live" ? "Enquiry counts come from the conversation log." : "Enquiry counts need the conversation log to be connected.";
 
   return (
     <>

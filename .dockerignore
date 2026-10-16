@@ -5,6 +5,11 @@ node_modules
 docs
 design
 tests
+playwright.config.ts
+vitest.config.mts
+coverage
+playwright-report
+test-results
 .env*
 env*
 !.env.example

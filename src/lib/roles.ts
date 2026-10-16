@@ -21,14 +21,14 @@ export const PAGES: PageDef[] = [
   { key: "exec", title: "Executive Overview", group: "Overview", status: "prototype", roles: "all", href: "/exec" },
   { key: "buyer", title: "Buyer Sequencing", group: "Departments", status: "live", roles: "pcbma", href: "/buyer" },
   { key: "listings", title: "Listings and Demand", group: "Departments", status: "live", roles: "pcbma", href: "/listings" },
-  { key: "pipeline", title: "Development Pipeline", group: "Departments", status: "prototype", roles: "pcbma", href: "/pipeline" },
+  { key: "pipeline", title: "Development Playbook", group: "Departments", status: "prototype", roles: "pcbma", href: "/pipeline" },
   { key: "map", title: "Map", group: "Departments", status: "prototype", roles: "pcbm", href: "/map" },
   { key: "projects", title: "Projects and Stock", group: "Departments", status: "prototype", roles: "pcbm", href: "/projects" },
-  { key: "meta", title: "Meta Lead Funnel", group: "Departments", status: "sample", roles: "pcbm", href: "/meta" },
+  { key: "meta", title: "Meta Lead Funnel", group: "Departments", status: "waiting", roles: "pcbm", href: "/meta" },
   { key: "pm", title: "Property Management", group: "Departments", status: "planned", roles: "pcb", href: "/pm" },
   { key: "comm", title: "Commercial", group: "Departments", status: "planned", roles: "pcb", href: "/comm" },
   { key: "market", title: "Market Insights", group: "Insights", status: "prototype", roles: "pcbm", href: "/market" },
-  { key: "finance", title: "Finance", group: "Insights", status: "sample", roles: "pcb", href: "/finance" },
+  { key: "finance", title: "Finance", group: "Insights", status: "waiting", roles: "pcb", href: "/finance" },
   { key: "tasks", title: "Activity and Tasks", group: "Operate", status: "live", roles: "pcbma", href: "/tasks" },
   { key: "alerts", title: "Alerts and Logs", group: "Operate", status: "prototype", roles: "pcb", href: "/alerts" },
   { key: "feedback", title: "Feedback", group: "Operate", status: "live", roles: "all", href: "/feedback" },
@@ -55,3 +55,4 @@ export const STATUS_LABEL: Record<Status, string> = {
 export const canManageUsers = (role: Role) => role === "platform_admin" || role === "company_admin" || role === "branch_admin";
 export const canEditPipeline = (role: Role) => ["platform_admin", "company_admin", "branch_admin", "marketing"].includes(role);
 export const canRevealPii = (role: Role) => role !== "viewer";
+export const canMarkContacted = (role: Role) => role !== "viewer";
