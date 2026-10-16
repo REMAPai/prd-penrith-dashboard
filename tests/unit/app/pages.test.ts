@@ -24,6 +24,7 @@ vi.mock("@/components/MapLoader", () => ({ default: (props: object) => createEle
 import Progress from "@/app/(app)/progress/page";
 import Exec from "@/app/(app)/exec/page";
 import Buyer from "@/app/(app)/buyer/page";
+import BuyerDetail from "@/app/(app)/buyer/[id]/page";
 import Listings from "@/app/(app)/listings/page";
 import Pipeline from "@/app/(app)/pipeline/page";
 import MapPage from "@/app/(app)/map/page";
@@ -260,6 +261,65 @@ describe("buyer page: masking and reveal", () => {
   it("renders every tab", async () => {
     as("agent");
     for (const tab of ["conversations", "funnel", "handovers", "quality"]) expect(await renderPage(Buyer, sp({ tab }))).toContain("Buyer Sequencing");
+  });
+
+  const detail = (reveal?: string, id = open) => ({ params: Promise.resolve({ id }), searchParams: Promise.resolve(reveal ? { reveal } : {}) });
+
+  it("masks phone and email on the buyer page until revealed, without writing an audit row", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(BuyerDetail, detail());
+    expect(html).not.toContain("0400 000 000");
+    expect(html).not.toContain("buyer@example.test");
+    expect(html).toContain("•••");
+    expect(html).toContain("Reveal phone and email");
+    expect(sess.audit).not.toHaveBeenCalled();
+  });
+
+  it("reveal shows the contact details and writes a PII reveal audit row", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(BuyerDetail, detail("1"));
+    expect(html).toContain("0400 000 000");
+    expect(html).toContain("buyer@example.test");
+    expect(sess.audit).toHaveBeenCalledWith("agent@test.example", "PII reveal", expect.stringContaining(open), "prd", "pen");
+  });
+
+  it("the buyer page shows the handled-by agent with email, the Vault record, and the chat with times", async () => {
+    withLiveLog();
+    as("agent");
+    liveConversation.readyForAgent = true;
+    liveConversation.whyReady = "Pre-approved and wants an inspection";
+    try {
+      const html = await renderPage(BuyerDetail, detail());
+      expect(html).toContain("Handled by");
+      expect(html).toContain("Test Agent");
+      expect(html).toContain("agent@example.test");
+      expect(html).toContain("Yes, listing found in Vault");
+      expect(html).toContain("Pre-approved and wants an inspection");
+      expect(html).toContain("Buyer · ");
+      expect(html).toContain("Assistant · ");
+      expect(html).toContain("Hi");
+      expect(html).toContain("Hello");
+    } finally {
+      liveConversation.readyForAgent = false;
+      liveConversation.whyReady = "";
+    }
+  });
+
+  it("says not handed over yet when no agent has the buyer", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(BuyerDetail, detail())).toContain("Not handed over yet");
+  });
+
+  it("an unknown conversation id is a not-found", async () => {
+    withLiveLog();
+    as("agent");
+    const { notFound } = await import("next/navigation");
+    vi.mocked(notFound).mockImplementationOnce(() => { throw new Error("NEXT_NOT_FOUND"); });
+    await expect(renderPage(BuyerDetail, detail(undefined, "nope"))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(notFound).toHaveBeenCalled();
   });
 
   it("hides everything that is not live in Live only mode", async () => {
