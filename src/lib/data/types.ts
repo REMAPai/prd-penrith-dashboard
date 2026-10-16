@@ -12,6 +12,8 @@ export type Conversation = {
   property: string;
   source: string;
   agent: string;
+  agentEmail: string;
+  hadPropertyRecord: "" | "yes" | "no";
   temperature: "Hot" | "Warm" | "New";
   buyerType: string;
   financeStatus: string;

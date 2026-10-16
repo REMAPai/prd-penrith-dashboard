@@ -2,7 +2,7 @@ import "server-only";
 import type { Conversation, Result } from "./types";
 import { query } from "@/lib/db";
 
-type ConvRow = { conversation_id: string; enquiry_id: string; buyer: string; phone: string; email: string; property: string; source: string; agent: string; temperature: "Hot" | "Warm" | "New"; buyer_type: string; finance_status: string; needs_to_sell_first: string; timeframe: string; inspection: string; wants_contract: boolean; consent: string; ready_for_agent: boolean; why_ready: string; handoff_status: "none" | "pending" | "done"; sla_due_at: Date | null; after_hours: boolean; started_at: Date; last_at: Date };
+type ConvRow = { conversation_id: string; enquiry_id: string; buyer: string; phone: string; email: string; property: string; source: string; agent: string; agent_email: string; had_property_record: "" | "yes" | "no"; temperature: "Hot" | "Warm" | "New"; buyer_type: string; finance_status: string; needs_to_sell_first: string; timeframe: string; inspection: string; wants_contract: boolean; consent: string; ready_for_agent: boolean; why_ready: string; handoff_status: "none" | "pending" | "done"; sla_due_at: Date | null; after_hours: boolean; started_at: Date; last_at: Date };
 type TurnRow = { conversation_id: string; turn: number; buyer_message: string; assistant_reply: string; buyer_at: Date; reply_at: Date | null };
 
 async function fromDatabase(): Promise<{ data: Conversation[]; asOf: string } | null> {
@@ -13,7 +13,7 @@ async function fromDatabase(): Promise<{ data: Conversation[]; asOf: string } | 
   for (const t of turns) byConv.set(t.conversation_id, [...(byConv.get(t.conversation_id) ?? []), t]);
   const data: Conversation[] = convs.map((c) => ({
     conversationId: c.conversation_id,
-    buyer: c.buyer, phone: c.phone, email: c.email, property: c.property, source: c.source, agent: c.agent,
+    buyer: c.buyer, phone: c.phone, email: c.email, property: c.property, source: c.source, agent: c.agent, agentEmail: c.agent_email, hadPropertyRecord: c.had_property_record,
     temperature: c.temperature, buyerType: c.buyer_type, financeStatus: c.finance_status, needsToSellFirst: c.needs_to_sell_first,
     timeframe: c.timeframe, inspection: c.inspection, wantsContract: c.wants_contract, consent: c.consent,
     readyForAgent: c.ready_for_agent, whyReady: c.why_ready, afterHours: c.after_hours,

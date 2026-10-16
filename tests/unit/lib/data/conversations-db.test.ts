@@ -32,6 +32,12 @@ describe("getConversations: dashboard database", () => {
     ]);
   });
 
+  it("maps the agent email and the property record flag", async () => {
+    routeDb([[/from buyer_conversations/, [row({ agent: "Thomas Latty", agent_email: "thomas@example.test", had_property_record: "yes" })]], [/from buyer_turns/, turns]]);
+    const r = await getConversations("pen");
+    expect(r.data[0]).toMatchObject({ agent: "Thomas Latty", agentEmail: "thomas@example.test", hadPropertyRecord: "yes" });
+  });
+
   it("only reads the Penrith branch and passes the conversation ids as a parameter", async () => {
     routeDb([[/from buyer_conversations/, [row()]], [/from buyer_turns/, turns]]);
     await getConversations("pen");
