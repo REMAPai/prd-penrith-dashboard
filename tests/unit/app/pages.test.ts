@@ -349,6 +349,17 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "all" }))).toContain("1 buyer · 1 reply · 0 handed to an agent");
   });
 
+  it("shows an initials avatar and the message time under each buyer's name", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    expect(html).toContain('class="bz-av hot"');
+    expect(html).toContain(">TB<");
+    expect(html).toContain("bz-when");
+    expect(html).not.toContain("First message");
+    expect(await renderPage(Buyer, sp({ day: "all" }))).toContain("Last message ");
+  });
+
   it("uses the Bronze table style for the buyer list", async () => {
     withLiveLog();
     as("agent");
