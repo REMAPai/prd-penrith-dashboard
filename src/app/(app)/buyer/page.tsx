@@ -8,7 +8,6 @@ import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buy
 import type { Conversation } from "@/lib/data/types";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : "grey");
 const INSP: Record<string, string> = { not_discussed: "Not discussed", offered_not_answered: "Offered", asked_about_it: "Buyer asked", booked: "Booked" };
 
 export default async function Buyer({ searchParams }: { searchParams: Promise<{ day?: string; q?: string; status?: string; agent?: string }> }) {
@@ -87,7 +86,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
                   </td>
                   <td>{c.property}</td>
                   <td>{c.source && <span className="bz-tag">{c.source}</span>}</td>
-                  <td><Badge tone={tone(c.temperature)}>{c.temperature}</Badge></td>
+                  <td><span className={`bz-pill ${c.temperature.toLowerCase()}`}>{c.temperature}</span></td>
                   <td className="soft">{INSP[c.inspection] ?? c.inspection}</td>
                   <td>{c.optedOut ? <Badge tone="red">Opted out</Badge> : c.readyForAgent ? (c.handoffStatus === "done" ? <Badge tone="live">Contacted by {c.agent || "agent"}</Badge> : <Badge tone="done">With {c.agent || "agent"}</Badge>) : <Badge tone="grey">Assistant replying</Badge>}</td>
                 </tr>
