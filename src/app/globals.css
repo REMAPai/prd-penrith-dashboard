@@ -291,3 +291,6 @@ main:has(.bz-page) { background: var(--bz-page); }
 .bz-stat .v { font-size: 34px; font-weight: 600; line-height: 1.15; }
 .bz-page .card h3 { font-size: 17px; font-weight: 600; color: var(--bz-espresso); }
 .bz-page .card .sub { font-size: 13px; }
+
+/* Legibility: the notice on the Bronze surface. */
+.bz-page .notice { background: #f6e7c0; color: #4d3200; border: 1px solid #e0c26e; border-left: 4px solid var(--bz-brass); font-size: 14px; font-weight: 500; line-height: 1.45; padding: 12px 16px; }
