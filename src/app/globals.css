@@ -156,3 +156,7 @@ table.t.compact td { padding: 5px 8px; vertical-align: top; line-height: 1.35; }
 table.t.compact td.nw { white-space: nowrap; }
 table.t.compact td.clip { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+
+@keyframes skel { 0% { opacity: 0.55; } 50% { opacity: 1; } 100% { opacity: 0.55; } }
+.skel { background: var(--surface-soft); border-radius: 8px; animation: skel 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }

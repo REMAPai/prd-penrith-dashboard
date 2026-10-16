@@ -86,7 +86,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && <div className="soft" style={{ padding: 16 }}>{q || status !== "all" || agent ? "No buyers match your filters." : "No buyers for this day."}</div>}
+          {rows.length === 0 && <div className="soft" style={{ padding: 16 }}>{res.data.length === 0 ? "No buyers yet. Each enquiry appears here as soon as the assistant replies to it." : q || status !== "all" || agent ? "No buyers match your filters." : "No buyers for this day."}</div>}
         </div>
       </Card>
     </>
