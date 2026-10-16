@@ -30,3 +30,16 @@ describe("turnSchema", () => {
     expect(turnSchema.safeParse({ ...base, buyerAt: "yesterday" }).success).toBe(false);
   });
 });
+
+describe("turnSchema: agent email and Vault record", () => {
+  const base = { conversationId: "vault_1", turn: 1, buyerAt: "2026-10-06T01:00:00.000Z" };
+  it("defaults both to empty so older senders still work", () => {
+    const r = turnSchema.parse(base);
+    expect(r.agentEmail).toBe("");
+    expect(r.hadPropertyRecord).toBe("");
+  });
+  it("accepts the agent email and a yes or no for the Vault record, and rejects anything else", () => {
+    expect(turnSchema.parse({ ...base, agentEmail: "a@example.test", hadPropertyRecord: "yes" })).toMatchObject({ agentEmail: "a@example.test", hadPropertyRecord: "yes" });
+    expect(turnSchema.safeParse({ ...base, hadPropertyRecord: "maybe" }).success).toBe(false);
+  });
+});
