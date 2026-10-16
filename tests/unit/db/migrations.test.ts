@@ -8,6 +8,7 @@ const root = process.cwd();
 const dir = join(root, "db", "migrations");
 const REMOVAL = "009_remove_previous_playbook_rows.sql";
 const TEST_CHAT_REMOVAL = "012_remove_test_conversations.sql";
+const SHEET_ONLY_REMOVAL = "013_keep_only_sheet_conversations.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const sql = (f: string) => readFileSync(join(dir, f), "utf8");
 const all = files.map(sql).join("\n");
@@ -39,7 +40,7 @@ describe("migrations are idempotent", () => {
         for (const s of stmts.filter((x) => /^insert\s+into/i.test(x))) expect(s, s.slice(0, 60)).toMatch(/on conflict/i);
       });
       it("never destroys data (the one approved removal has its own tests below)", () => {
-        for (const s of f === REMOVAL || f === TEST_CHAT_REMOVAL ? [] : stmts) {
+        for (const s of f === REMOVAL || f === TEST_CHAT_REMOVAL || f === SHEET_ONLY_REMOVAL ? [] : stmts) {
           expect(s, s.slice(0, 60)).not.toMatch(/^\s*(truncate|delete\s+from)/i);
           if (/^\s*drop\s/i.test(s)) expect(s).toMatch(/if exists/i);
         }
@@ -203,6 +204,16 @@ describe("012_remove_test_conversations", () => {
     expect(stmts[0]).toMatch(/testchat/);
     expect(stmts[0]).toMatch(/'Test chat'/);
     expect(stmts[0]).not.toMatch(/vault/i);
+  });
+});
+
+describe("013_keep_only_sheet_conversations", () => {
+  const stmts = statements(sql(SHEET_ONLY_REMOVAL));
+  it("only deletes older buyer_conversations rows that are not in the sheet", () => {
+    expect(stmts).toHaveLength(1);
+    expect(stmts[0]).toMatch(/^delete from buyer_conversations\s+where conversation_id not in \(/i);
+    expect(stmts[0]).toMatch(/and last_at <= '/i);
+    for (const id of ["vault_72621635", "vault_72628935", "vault_72647125"]) expect(stmts[0]).toContain(id);
   });
 });
 
