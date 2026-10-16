@@ -22,28 +22,28 @@
   --bz-brass: #b8893a;
   /* Bronze palette. Used only by the Buyer Sequencing list (class names starting bz-). */
   --bz-head: #efe5d0;
-  --bz-head-ink: #6b5b3a;
+  --bz-head-ink: #43341b;
   --bz-line: #e6dbc4;
   --bz-stripe: #f6efe0;
   --bz-hover: #f0e6d0;
-  --bz-ink-soft: #8a7a5c;
+  --bz-ink-soft: #5f5037;
   --bz-tag: #efe5d0;
-  --bz-tag-ink: #5e4f2e;
+  --bz-tag-ink: #4a3b1f;
   --bz-hot: #f0d9d0;
-  --bz-hot-ink: #8e3b2b;
+  --bz-hot-ink: #7c2c1d;
   --bz-hot-ring: #e2bfb2;
   --bz-hot-edge: #b5472f;
   --bz-warm: #f2e2b8;
-  --bz-warm-ink: #8a5e10;
+  --bz-warm-ink: #6a4503;
   --bz-warm-ring: #e3cc8e;
   --bz-new: #ebe3d2;
-  --bz-new-ink: #7a6a4f;
+  --bz-new-ink: #5a4c33;
   --bz-new-ring: #d9cdb2;
   --bz-ok: #dde8d3;
-  --bz-ok-ink: #3f6b3a;
+  --bz-ok-ink: #2c5727;
   --bz-ok-ring: #c3d6b4;
   --bz-info: #dce4ee;
-  --bz-info-ink: #34527a;
+  --bz-info-ink: #274468;
   --live: #1f9d6b;
   --live-tint: #e6f6ef;
   --live-ink: #136b49;
@@ -272,3 +272,7 @@ main:has(.bz-page) { background: var(--bz-page); }
 .bz-bubble-buyer { background: var(--bz-stripe); border: 1px solid var(--bz-line); color: var(--bz-ink); }
 .bz-bubble-reply { background: #ecd9b8; border: 1px solid #dcc79f; color: #3b2a14; }
 .bz-page .card .soft { color: var(--bz-ink-soft); }
+
+/* Legibility: darker supporting text on the cream surface. */
+.bz-page .sub, .bz-page .soft { color: var(--bz-ink-soft); }
+.bz-hero-sub { color: #e6dcc3; }
