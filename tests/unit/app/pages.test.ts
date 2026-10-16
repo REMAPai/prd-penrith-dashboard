@@ -341,6 +341,16 @@ describe("buyer page: masking and reveal", () => {
     expect(replying).toContain("status=handed&amp;q=test");
   });
 
+  it("filters by agent and lists the agents named that day", async () => {
+    withLiveLog();
+    as("agent");
+    const all = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    expect(all).toContain("All agents");
+    expect(all).toContain('value="Test Agent"');
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05", agent: "Test Agent" }))).toContain("Test Buyer");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05", agent: "Someone Else" }))).not.toContain("Test Buyer");
+  });
+
   it("hides everything that is not live in Live only mode", async () => {
     as("agent");
     jar.set("liveOnly", "1");

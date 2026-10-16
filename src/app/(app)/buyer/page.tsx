@@ -3,14 +3,14 @@ import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
 import { Badge, Card, Denied, Notice, PageHeader, Tabs, fmtDate } from "@/components/ui";
 import { conversationDays, conversationsOnDay, dayLabel, timeLabel, turnsOnDay } from "@/lib/buyer-days";
-import { applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
+import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
 import type { Conversation } from "@/lib/data/types";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : "grey");
 const INSP: Record<string, string> = { not_discussed: "Not discussed", offered_not_answered: "Offered", asked_about_it: "Buyer asked", booked: "Booked" };
 
-export default async function Buyer({ searchParams }: { searchParams: Promise<{ day?: string; q?: string; status?: string }> }) {
+export default async function Buyer({ searchParams }: { searchParams: Promise<{ day?: string; q?: string; status?: string; agent?: string }> }) {
   const ctx = await access("buyer");
   if (!ctx) return null;
   if (ctx === "denied") return <Denied />;
@@ -22,11 +22,13 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
 
   const q = (sp.q ?? "").slice(0, 80);
   const status = parseStatus(sp.status);
+  const agent = (sp.agent ?? "").slice(0, 80);
   const dayRows: { c: Conversation; when: string }[] =
     day === "all"
       ? res.data.slice().sort((a, b) => b.lastAt.localeCompare(a.lastAt)).map((c) => ({ c, when: fmtDate(c.lastAt) }))
       : conversationsOnDay(res.data, day).map(({ c, first }) => ({ c, when: timeLabel(first) }));
-  const rows = applyFilters(dayRows, { q, status });
+  const rows = applyFilters(dayRows, { q, status, agent });
+  const agents = agentsOf(dayRows);
   const handed = rows.filter(({ c }) => c.readyForAgent).length;
   const replies = rows.reduce((n, { c }) => n + (day === "all" ? c.turns : turnsOnDay(c, day)).filter((x) => x.assistant).length, 0);
   const tabs: [string, string][] = [...days.map((d, i): [string, string] => [d, i === 0 ? `${dayLabel(d)} (latest)` : dayLabel(d)]), ["all", "All Data"]];
@@ -42,12 +44,16 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         <input type="hidden" name="day" value={day} />
         <input type="hidden" name="status" value={status} />
         <input type="search" name="q" defaultValue={q} placeholder="Search buyer, property, source or agent" aria-label="Search buyers" style={{ flex: "1 1 260px", maxWidth: 420 }} />
+        <select name="agent" defaultValue={agent} aria-label="Filter by agent" style={{ width: "auto", maxWidth: 220 }}>
+          <option value="">All agents</option>
+          {agents.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
         <button className="btn">Search</button>
-        {(q || status !== "all") && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
+        {(q || status !== "all" || agent) && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
       </form>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {([["all", "All"], ["handed", "Handed to agent"], ["replying", "Assistant replying"]] as [BuyerStatus, string][]).map(([k, label]) => (
-          <Link key={k} className={`chip${status === k ? " on" : ""}`} aria-current={status === k ? "true" : undefined} href={`/buyer?day=${day}&status=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`}>{label}</Link>
+          <Link key={k} className={`chip${status === k ? " on" : ""}`} aria-current={status === k ? "true" : undefined} href={`/buyer?day=${day}&status=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`}>{label}</Link>
         ))}
       </div>
 
@@ -69,7 +75,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && <div className="soft" style={{ padding: 16 }}>{q || status !== "all" ? "No buyers match your filters." : "No buyers for this day."}</div>}
+          {rows.length === 0 && <div className="soft" style={{ padding: 16 }}>{q || status !== "all" || agent ? "No buyers match your filters." : "No buyers for this day."}</div>}
         </div>
       </Card>
     </>
