@@ -227,40 +227,7 @@ describe("buyer page: masking and reveal", () => {
     as("agent");
     const html = await renderPage(Buyer, sp());
     expect(html).toContain("Test Buyer");
-    expect(html).toContain("Real conversations from the conversation log");
-  });
-
-  it("masks phone and email in the drawer until revealed, without writing an audit row", async () => {
-    withLiveLog();
-    as("agent");
-    const html = await renderPage(Buyer, sp({ c: open }));
-    expect(html).not.toContain("0400 000 000");
-    expect(html).not.toContain("buyer@example.test");
-    expect(html).toContain("•••");
-    expect(html).toContain("Reveal");
-    expect(sess.audit).not.toHaveBeenCalled();
-  });
-
-  it("reveal shows the contact details and writes a PII reveal audit row", async () => {
-    withLiveLog();
-    as("agent");
-    const html = await renderPage(Buyer, sp({ c: open, reveal: open }));
-    expect(html).toContain("0400 000 000");
-    expect(html).toContain("buyer@example.test");
-    expect(sess.audit).toHaveBeenCalledWith("agent@test.example", "PII reveal", expect.stringContaining(open), "prd", "pen");
-  });
-
-  it("a reveal parameter for a different conversation reveals nothing", async () => {
-    withLiveLog();
-    as("agent");
-    const html = await renderPage(Buyer, sp({ c: open, reveal: "live-pen-1" }));
-    expect(html).not.toContain("0400 000 000");
-    expect(sess.audit).not.toHaveBeenCalled();
-  });
-
-  it("renders every tab", async () => {
-    as("agent");
-    for (const tab of ["conversations", "funnel", "handovers", "quality"]) expect(await renderPage(Buyer, sp({ tab }))).toContain("Buyer Sequencing");
+    expect(html).toContain("Every buyer and every reply, one tab per day");
   });
 
   const detail = (reveal?: string, id = open) => ({ params: Promise.resolve({ id }), searchParams: Promise.resolve(reveal ? { reveal } : {}) });
@@ -322,6 +289,22 @@ describe("buyer page: masking and reveal", () => {
     expect(notFound).toHaveBeenCalled();
   });
 
+  it("lists one tab per day, newest first and marked latest, with All Data last", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp());
+    expect(html).toContain("5 Oct (latest)");
+    expect(html.indexOf("5 Oct (latest)")).toBeLessThan(html.indexOf("All Data"));
+  });
+
+  it("opens a day tab or All Data, and an unknown day falls back to the latest day", async () => {
+    withLiveLog();
+    as("agent");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain("Test Buyer");
+    expect(await renderPage(Buyer, sp({ day: "all" }))).toContain("Test Buyer");
+    expect(await renderPage(Buyer, sp({ day: "2026-10-04" }))).toContain("Test Buyer");
+  });
+
   it("hides everything that is not live in Live only mode", async () => {
     as("agent");
     jar.set("liveOnly", "1");
@@ -338,7 +321,7 @@ describe("buyer page: live log", () => {
     const convRoutes: [RegExp, unknown[]][] = [[/from buyer_conversations/, [{ conversation_id: "c1", enquiry_id: "e1", buyer: "Pat", phone: "0400", email: "p@example.test", property: "1 A St", source: "REA", agent: "", temperature: "Hot", buyer_type: "Investor", finance_status: "", needs_to_sell_first: "", timeframe: "", inspection: "", wants_contract: false, consent: "Yes", ready_for_agent: false, why_ready: "", handoff_status: "none", sla_due_at: null, after_hours: false, started_at: new Date("2026-10-06T00:00:00Z"), last_at: new Date("2026-10-06T00:00:00Z") }]], [/from buyer_turns/, []]];
     query.mockImplementation(async (sql, params) => { for (const [re, out] of convRoutes) if (re.test(sql)) return out; return seeded(sql, params); });
     const html = await renderPage(Buyer, sp());
-    expect(html).toContain("Real conversations from the conversation log");
+    expect(html).toContain("Every buyer and every reply, one tab per day");
     expect(html).toContain("Outbound sending is held");
     expect(html).not.toContain("SAMPLE DATA");
     expect(html).toContain("Dashboard database, written by n8n on every turn");
