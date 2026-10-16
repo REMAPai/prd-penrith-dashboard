@@ -40,7 +40,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
             <thead><tr><th>{day === "all" ? "Last message" : "First message"}</th><th>Buyer</th><th>Property</th><th>Source</th><th>Buyer type</th><th>Inspection</th><th>Status</th></tr></thead>
             <tbody>
               {rows.slice(0, 500).map(({ c, when }) => (
-                <tr key={c.conversationId}>
+                <tr key={c.conversationId} className={c.temperature === "Hot" ? "hot" : undefined}>
                   <td className="soft">{when}</td>
                   <td style={{ fontWeight: 500 }}><Link href={`/buyer/${encodeURIComponent(c.conversationId)}?day=${day}`}>{c.buyer || "Unknown buyer"}</Link></td>
                   <td>{c.property}</td>
