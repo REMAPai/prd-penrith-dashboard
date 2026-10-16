@@ -16,6 +16,8 @@ export const turnSchema = z.object({
   property: str,
   source: str,
   agent: str,
+  agentEmail: z.string().max(200).default(""),
+  hadPropertyRecord: z.enum(["", "yes", "no"]).default(""),
   temperature: z.enum(["Hot", "Warm", "New"]).default("New"),
   buyerType: str,
   financeStatus: str,
