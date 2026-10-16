@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFilters, matchesSearch, matchesStatus, parseStatus } from "@/lib/buyer-filters";
+import { agentsOf, applyFilters, matchesSearch, matchesStatus, parseStatus } from "@/lib/buyer-filters";
 import { convo } from "@tests/helpers/conversation";
 
 const a = convo({ conversationId: "a", buyer: "Rachel Moore", property: "12 Lucas St, EMU PLAINS", source: "REA", agent: "Thomas Latty" });
@@ -46,5 +46,19 @@ describe("status filter", () => {
     expect(parseStatus("handed")).toBe("handed");
     expect(parseStatus("x")).toBe("all");
     expect(parseStatus(undefined)).toBe("all");
+  });
+});
+
+describe("agent filter", () => {
+  const t1 = convo({ conversationId: "t1", agent: "Thomas Latty", readyForAgent: true });
+  const s1 = convo({ conversationId: "s1", agent: "Sam Reed", readyForAgent: true });
+  const none = convo({ conversationId: "n1", agent: "" });
+  const rows = [{ c: t1 }, { c: s1 }, { c: none }];
+  it("keeps only buyers handled by that agent", () => {
+    expect(applyFilters(rows, { q: "", agent: "Thomas Latty" }).map((r) => r.c.conversationId)).toEqual(["t1"]);
+    expect(applyFilters(rows, { q: "", agent: "" })).toHaveLength(3);
+  });
+  it("lists the agents once each, sorted, without blanks", () => {
+    expect(agentsOf([...rows, { c: t1 }])).toEqual(["Sam Reed", "Thomas Latty"]);
   });
 });
