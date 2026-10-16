@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { notFound } from "next/navigation";
 import { access } from "@/lib/ctx";
 import { getConversations, mask } from "@/lib/data/conversations";
@@ -11,11 +12,14 @@ const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : 
 const INSP: Record<string, string> = { not_discussed: "Not discussed", offered_not_answered: "Offered", asked_about_it: "Buyer asked", booked: "Booked" };
 const VAULT: Record<string, string> = { yes: "Yes, listing found in Vault", no: "No record found", "": "Not recorded" };
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, eye }: { label: string; children: React.ReactNode; eye?: React.ReactNode }) {
   return (
     <div style={{ background: "var(--surface-soft)", borderRadius: 10, padding: "10px 14px" }}>
       <div className="soft" style={{ fontSize: 12 }}>{label}</div>
-      <div style={{ fontWeight: 500, marginTop: 2 }}>{children}</div>
+      <div style={{ fontWeight: 500, marginTop: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{children}</span>
+        {eye}
+      </div>
     </div>
   );
 }
@@ -31,7 +35,14 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
   if (!c) notFound();
 
   const backDay = sp.day && /^(all|\d{4}-\d{2}-\d{2})$/.test(sp.day) ? sp.day : "all";
-  const revealed = sp.reveal === "1" && canRevealPii(ctx.session.role);
+  const mayReveal = canRevealPii(ctx.session.role);
+  const revealed = sp.reveal === "1" && mayReveal;
+  const base = `/buyer/${encodeURIComponent(c.conversationId)}?day=${backDay}`;
+  const eye = mayReveal ? (
+    <Link href={revealed ? base : `${base}&reveal=1`} aria-label={revealed ? "Hide phone and email" : "Show phone and email (recorded in the audit log)"} title={revealed ? "Hide phone and email" : "Show phone and email (recorded in the audit log)"} style={{ display: "inline-flex", color: "var(--text-soft)" }}>
+      {revealed ? <EyeOff size={18} /> : <Eye size={18} />}
+    </Link>
+  ) : null;
   if (revealed) await audit(ctx.session.email, "PII reveal", `Viewed contact details for a buyer conversation (${c.conversationId.slice(0, 24)})`, ctx.branch.company_id, ctx.branch.id);
 
   return (
@@ -44,8 +55,8 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
       {res.note && <Notice>{res.note}</Notice>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 10 }}>
-        <Field label="Phone">{revealed ? c.phone : mask(c.phone) || "Not captured"}</Field>
-        <Field label="Email">{revealed ? c.email : mask(c.email, 6) || "Not captured"}</Field>
+        <Field label="Phone" eye={c.phone ? eye : null}>{revealed ? c.phone : mask(c.phone) || "Not captured"}</Field>
+        <Field label="Email" eye={c.email ? eye : null}>{revealed ? c.email : mask(c.email, 6) || "Not captured"}</Field>
         <Field label="Buyer type">{c.temperature}</Field>
         <Field label="Property record in Vault">{VAULT[c.hadPropertyRecord] ?? c.hadPropertyRecord}</Field>
         <Field label="Source">{c.source || "Not captured"}</Field>
@@ -55,13 +66,6 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
         </Field>
         {c.readyForAgent && <Field label="Why handed over">{c.whyReady || "Actionable signal"}</Field>}
       </div>
-      {!revealed && (c.phone || c.email) && (
-        <div>
-          <Link className="btn sm" href={`/buyer/${encodeURIComponent(c.conversationId)}?day=${backDay}&reveal=1`}>Reveal phone and email</Link>{" "}
-          <span className="soft" style={{ fontSize: 12 }}>Revealing is recorded in the audit log.</span>
-        </div>
-      )}
-
       <div className="card" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
         {c.turns.length === 0 && <div className="soft">No messages yet.</div>}
         {c.turns.map((t, i) => (
