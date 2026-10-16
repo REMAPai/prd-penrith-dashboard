@@ -43,3 +43,14 @@ describe("turnSchema: agent email and Vault record", () => {
     expect(turnSchema.safeParse({ ...base, hadPropertyRecord: "maybe" }).success).toBe(false);
   });
 });
+
+describe("turnSchema: opted out", () => {
+  const base = { conversationId: "vault_1", turn: 1, buyerAt: "2026-10-06T01:00:00.000Z" };
+  it("defaults to false and accepts true", () => {
+    expect(turnSchema.parse(base).optedOut).toBe(false);
+    expect(turnSchema.parse({ ...base, optedOut: true }).optedOut).toBe(true);
+  });
+  it("rejects a non-boolean", () => {
+    expect(turnSchema.safeParse({ ...base, optedOut: "yes" }).success).toBe(false);
+  });
+});
