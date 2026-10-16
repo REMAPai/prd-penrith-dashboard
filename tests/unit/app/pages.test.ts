@@ -390,11 +390,19 @@ describe("buyer page: masking and reveal", () => {
     }
   });
 
+  it("shows the days as a pill track with the open day marked", async () => {
+    withLiveLog();
+    as("agent");
+    const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
+    expect(html).toContain('class="bz-tabs"');
+    expect(html).toContain('class="on" aria-current="page"');
+  });
+
   it("shows four summary cards for the open tab: buyers, replies, handed to agent and hot buyers", async () => {
     withLiveLog();
     as("agent");
     const html = await renderPage(Buyer, sp({ day: "2026-10-05" }));
-    const stats = html.slice(html.indexOf('class="bz-stats"'), html.indexOf('class="tabs"'));
+    const stats = html.slice(html.indexOf('class="bz-stats"'), html.indexOf('class="bz-tabs"'));
     expect(stats).toContain("Buyers</div><div class=\"v\">1<");
     expect(stats).toContain("Replies sent</div><div class=\"v\">1<");
     expect(stats).toContain("Handed to agent</div><div class=\"v\">0<");

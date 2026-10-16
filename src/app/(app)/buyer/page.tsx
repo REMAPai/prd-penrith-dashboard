@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
-import { Card, Denied, Notice, StatusBadge, Tabs, fmtDate } from "@/components/ui";
+import { Card, Denied, Notice, StatusBadge, fmtDate } from "@/components/ui";
 import { conversationDays, conversationsOnDay, dayLabel, splitDays, timeLabel, turnsOnDay } from "@/lib/buyer-days";
 import { initials } from "@/lib/buyer-display";
 import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
@@ -62,7 +62,11 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         <div className="bz-stat ok"><div className="l">Handed to agent</div><div className="v">{handed}</div></div>
         <div className="bz-stat hot"><div className="l">Hot buyers</div><div className="v">{hot}</div></div>
       </div>
-      <Tabs base="/buyer" param="day" current={day} tabs={tabs} />
+      <nav className="bz-tabs" aria-label="Days">
+        {tabs.map(([k, label]) => (
+          <Link key={k} href={`/buyer?day=${k}`} className={day === k ? "on" : undefined} aria-current={day === k ? "page" : undefined}>{label}</Link>
+        ))}
+      </nav>
       {older.length > 0 && (
         <form method="get" action="/buyer" style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <label className="soft" style={{ fontSize: 12 }} htmlFor="older-day">Older days</label>
