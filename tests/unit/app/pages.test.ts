@@ -319,6 +319,17 @@ describe("buyer page: masking and reveal", () => {
     expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain('class="hot"');
   });
 
+  it("searches buyers by name, property, source or agent", async () => {
+    withLiveLog();
+    as("agent");
+    const hit = await renderPage(Buyer, sp({ day: "2026-10-05", q: "test st" }));
+    expect(hit).toContain("Test Buyer");
+    expect(hit).toContain('value="test st"');
+    const miss = await renderPage(Buyer, sp({ day: "2026-10-05", q: "zzz" }));
+    expect(miss).not.toContain("Test Buyer");
+    expect(miss).toContain("No buyers match your search.");
+  });
+
   it("hides everything that is not live in Live only mode", async () => {
     as("agent");
     jar.set("liveOnly", "1");
