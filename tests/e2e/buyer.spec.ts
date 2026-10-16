@@ -37,7 +37,7 @@ test.describe("buyer conversations (read only)", () => {
     await expect(page.getByText("Property record in Vault")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("0400 000 000");
     await expect(page.locator("body")).not.toContainText("e2e-buyer@example.test");
-    await expect(page.getByRole("link", { name: /^Show phone and email/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Show phone and email/ }).first()).toBeVisible();
   });
 
   test("Back returns to the tab the buyer was opened from", async ({ page }) => {
@@ -53,10 +53,10 @@ test.describe("WRITES DATA: revealing contact details (adds a PII reveal audit r
   test("Reveal shows phone and email and writes an audit row naming the user", async ({ page }) => {
     const before = (await dbRows("select count(*)::int as n from audit_log where action = 'PII reveal' and actor_email = $1", [emailOf("agent")]))[0].n;
     await page.goto(OPEN);
-    await page.getByRole("link", { name: /^Show phone and email/ }).click();
+    await page.getByRole("link", { name: /^Show phone and email/ }).first().click();
     await expect(page.locator("body")).toContainText("0400 000 000");
     await expect(page.locator("body")).toContainText("e2e-buyer@example.test");
-    await expect(page.getByRole("link", { name: /^Hide phone and email/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Hide phone and email/ }).first()).toBeVisible();
     const after = (await dbRows("select count(*)::int as n from audit_log where action = 'PII reveal' and actor_email = $1", [emailOf("agent")]))[0].n;
     expect(after).toBeGreaterThan(before);
   });
