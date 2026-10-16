@@ -242,10 +242,11 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 .bz-stat.hot .v { color: var(--bz-hot-ink); }
 
 /* Day tabs (pill track) */
-.bz-tabs { display: flex; gap: 2px; background: #d9ccb3; border-radius: 999px; padding: 4px; align-self: flex-start; max-width: 100%; overflow-x: auto; }
-.bz-tabs a { padding: 7px 17px; border-radius: 999px; color: #5e4f2e; font-size: 13px; white-space: nowrap; }
+.bz-tabs { display: flex; align-items: center; gap: 2px; background: #d9ccb3; border-radius: 999px; padding: 6px 6px 8px; align-self: flex-start; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.bz-tabs::-webkit-scrollbar { display: none; }
+.bz-tabs a { flex: none; line-height: 1.2; padding: 7px 17px; border-radius: 999px; color: #5e4f2e; font-size: 13px; white-space: nowrap; }
 .bz-tabs a:hover { background: rgba(255, 255, 255, 0.35); }
-.bz-tabs a.on { background: var(--bz-espresso); color: #f6eedd; box-shadow: 0 2px 6px rgba(43, 33, 24, 0.3); }
+.bz-tabs a.on, .bz-tabs a.on:hover { background: var(--bz-espresso); color: #f6eedd; font-weight: 500; box-shadow: 0 2px 6px rgba(43, 33, 24, 0.3); }
 
 /* Filter chips and the older-days menu */
 .bz-page .chip { background: var(--bz-card); border: 1px solid #d4c6aa; color: var(--bz-ink); }
