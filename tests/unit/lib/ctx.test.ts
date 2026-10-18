@@ -46,10 +46,10 @@ describe("getCtx", () => {
     expect(c.branch.id).toBe("bm");
   });
 
-  it("honours the scope cookie only for an allowed branch", async () => {
+  it("ignores an old scope cookie and uses Penrith, so nobody is stuck on another branch", async () => {
     setup(makeSession("company_admin"));
     jar.set("scope", "gp");
-    expect((await getCtx())!.branch.id).toBe("gp");
+    expect((await getCtx())!.branch.id).toBe("pen");
     jar.set("scope", "oth");
     expect((await getCtx())!.branch.id).toBe("pen");
   });
@@ -69,9 +69,8 @@ describe("getCtx", () => {
     expect((await getCtx())!.liveOnly).toBe(false);
   });
 
-  it("uses the selected branch's company name, defaulting to PRD Group", async () => {
-    setup(makeSession("platform_admin"));
-    jar.set("scope", "oth");
+  it("uses the branch's company name, defaulting to PRD Group", async () => {
+    setup(makeSession("branch_admin", { branchId: "oth" }));
     expect((await getCtx())!.companyName).toBe("Other Co");
     routeDb([[/from branches/, BRANCHES], [/from companies/, []]]);
     expect((await getCtx())!.companyName).toBe("PRD Group");

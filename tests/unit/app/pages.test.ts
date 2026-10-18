@@ -429,6 +429,20 @@ describe("buyer page: masking and reveal", () => {
     expect(hero).toContain('name="agent"');
   });
 
+  it("writes the agent's name with capitals in the list and on the buyer page", async () => {
+    withLiveLog();
+    as("agent");
+    liveConversation.readyForAgent = true;
+    liveConversation.agent = "thomas latty";
+    try {
+      expect(await renderPage(Buyer, sp({ day: "2026-10-05" }))).toContain("With Thomas Latty");
+      expect(await renderPage(BuyerDetail, detail())).toContain("Thomas Latty");
+    } finally {
+      liveConversation.readyForAgent = false;
+      liveConversation.agent = "Test Agent";
+    }
+  });
+
   it("puts the Buyer Sequencing page on the Bronze surface", async () => {
     withLiveLog();
     as("agent");

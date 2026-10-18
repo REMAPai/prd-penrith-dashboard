@@ -8,6 +8,7 @@ import { audit } from "@/lib/session";
 import { canMarkContacted, canRevealPii } from "@/lib/roles";
 import { markContacted } from "./actions";
 import { dayLabel, sydneyDay, timeLabel } from "@/lib/buyer-days";
+import { titleName } from "@/lib/buyer-display";
 
 const tone = (t: string) => (t === "Hot" ? "red" : t === "Warm" ? "prototype" : "grey");
 const INSP: Record<string, string> = { not_discussed: "Not discussed", offered_not_answered: "Offered", asked_about_it: "Buyer asked", booked: "Booked" };
@@ -64,7 +65,7 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
         <Field label="Source">{c.source || "Not captured"}</Field>
         <Field label="Inspection">{INSP[c.inspection] ?? c.inspection}</Field>
         <Field label="Handled by">
-          {c.readyForAgent ? <>{c.agent || "Agent not named"}{c.handoffStatus === "done" && <div style={{ marginTop: 4 }}><Badge tone="live">Contacted</Badge></div>}{c.agentEmail && <div className="soft" style={{ fontSize: 13, fontWeight: 400 }}>{c.agentEmail}</div>}</> : "Not handed over yet"}
+          {c.readyForAgent ? <>{titleName(c.agent) || "Agent not named"}{c.handoffStatus === "done" && <div style={{ marginTop: 4 }}><Badge tone="live">Contacted</Badge></div>}{c.agentEmail && <div className="soft" style={{ fontSize: 13, fontWeight: 400 }}>{c.agentEmail}</div>}</> : "Not handed over yet"}
         </Field>
         {c.readyForAgent && <Field label="Why handed over">{c.whyReady || "Actionable signal"}</Field>}
       </div>
@@ -94,7 +95,7 @@ export default async function BuyerDetail({ params, searchParams }: { params: Pr
             )}
           </div>
         ))}
-        {c.readyForAgent && <div className="soft" style={{ textAlign: "center", fontSize: 12, borderTop: "1px solid var(--bz-line)", paddingTop: 10 }}>Handed over to {c.agent || "an agent"}</div>}
+        {c.readyForAgent && <div className="soft" style={{ textAlign: "center", fontSize: 12, borderTop: "1px solid var(--bz-line)", paddingTop: 10 }}>Handed over to {titleName(c.agent) || "an agent"}</div>}
       </div>
     </div>
   );

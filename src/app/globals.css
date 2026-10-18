@@ -17,32 +17,33 @@
   --bz-card: #fbf7ee;
   --bz-card-line: #ddd0b8;
   --bz-espresso: #2b2118;
+  --bz-hero: #99541d;
   --bz-copper: #a5612a;
   --bz-brass: #b8893a;
   /* Bronze palette. Used only by the Buyer Sequencing list (class names starting bz-). */
   --bz-head: #efe5d0;
-  --bz-head-ink: #6b5b3a;
+  --bz-head-ink: #43341b;
   --bz-line: #e6dbc4;
   --bz-stripe: #f6efe0;
   --bz-hover: #f0e6d0;
-  --bz-ink-soft: #8a7a5c;
+  --bz-ink-soft: #5f5037;
   --bz-tag: #efe5d0;
-  --bz-tag-ink: #5e4f2e;
+  --bz-tag-ink: #4a3b1f;
   --bz-hot: #f0d9d0;
-  --bz-hot-ink: #8e3b2b;
+  --bz-hot-ink: #7c2c1d;
   --bz-hot-ring: #e2bfb2;
   --bz-hot-edge: #b5472f;
   --bz-warm: #f2e2b8;
-  --bz-warm-ink: #8a5e10;
+  --bz-warm-ink: #6a4503;
   --bz-warm-ring: #e3cc8e;
   --bz-new: #ebe3d2;
-  --bz-new-ink: #7a6a4f;
+  --bz-new-ink: #5a4c33;
   --bz-new-ring: #d9cdb2;
   --bz-ok: #dde8d3;
-  --bz-ok-ink: #3f6b3a;
+  --bz-ok-ink: #2c5727;
   --bz-ok-ring: #c3d6b4;
   --bz-info: #dce4ee;
-  --bz-info-ink: #34527a;
+  --bz-info-ink: #274468;
   --live: #1f9d6b;
   --live-tint: #e6f6ef;
   --live-ink: #136b49;
@@ -211,25 +212,27 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 
 /* Buyer Sequencing page surface (Bronze). Scoped to .bz-page so no other page changes. */
-.bz-page { background: var(--bz-page); color: var(--bz-ink); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; box-shadow: inset 0 1px 3px rgba(60, 40, 15, 0.12); }
+.bz-page { color: var(--bz-ink); display: flex; flex-direction: column; gap: 16px; }
+/* The sand colour fills the whole content area (not the sidebar or top bar), so the page no longer looks like a box on white. */
+main:has(.bz-page) { background: var(--bz-page); }
 .bz-page .card { background: var(--bz-card); border: 1px solid var(--bz-card-line); border-radius: 14px; box-shadow: 0 1px 2px rgba(60, 40, 15, 0.08), 0 10px 22px rgba(60, 40, 15, 0.08); }
 .bz-page .sub, .bz-page .soft { color: var(--bz-ink-soft); }
 
 /* Header band */
-.bz-hero { position: relative; background: var(--bz-espresso); color: #f6eedd; border-radius: 14px; padding: 20px 22px 22px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; box-shadow: 0 8px 20px rgba(43, 33, 24, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
-.bz-hero::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 0; height: 2px; background: var(--bz-brass); opacity: 0.85; }
+.bz-hero { position: relative; background: var(--bz-hero); color: #f6eedd; border-radius: 14px; padding: 20px 22px 22px; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; box-shadow: 0 8px 20px rgba(110, 60, 18, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+.bz-hero::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 0; height: 2px; background: #e6c27a; opacity: 0.9; }
 .bz-hero-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .bz-hero h1 { margin: 0; font-size: 22px; font-weight: 500; }
-.bz-hero-sub { color: #cdbfa4; font-size: 13px; margin-top: 3px; }
-.bz-hero .badge { background: transparent; border: 1px solid #6fa06a; color: #a9d3a2; }
-.bz-hero .badge.b-waiting, .bz-hero .badge.b-prototype { border-color: #d8b25a; color: #e9cf8e; }
+.bz-hero-sub { color: #f3e4cb; font-size: 13px; margin-top: 3px; }
+.bz-hero .badge { background: rgba(255, 255, 255, 0.12); border: 1px solid #cfe6c4; color: #e4f3dc; }
+.bz-hero .badge.b-waiting, .bz-hero .badge.b-prototype { border-color: #f0d58f; color: #fbe9b8; }
 .bz-search { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.bz-search input[type="search"] { flex: 1 1 240px; min-width: 200px; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14); color: #f6eedd; }
-.bz-search input[type="search"]::placeholder { color: #cdbfa4; }
-.bz-search select { width: auto; max-width: 200px; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14); color: #f6eedd; }
+.bz-search input[type="search"] { flex: 1 1 240px; min-width: 200px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28); color: #fff7e8; }
+.bz-search input[type="search"]::placeholder { color: #f0dcc0; }
+.bz-search select { width: auto; max-width: 200px; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28); color: #fff7e8; }
 .bz-search select option { color: #2a2118; }
-.bz-search .btn { background: var(--bz-brass); border: 0; color: #22180c; font-weight: 500; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
-.bz-search .btn:hover { background: #c79a4a; }
+.bz-search .btn { background: #fbf3e2; border: 0; color: #5a3010; font-weight: 500; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25); }
+.bz-search .btn:hover { background: #fff; }
 
 /* Summary cards */
 .bz-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
@@ -253,14 +256,14 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 .bz-page .chip:hover { background: #f3ead7; }
 .bz-page .chip.on { background: var(--bz-copper); border-color: var(--bz-copper); color: #fff7e8; font-weight: 500; }
 .bz-page .btn { background: var(--bz-card); border: 1px solid #d4c6aa; color: var(--bz-ink); }
-.bz-page .bz-hero .btn { color: #22180c; }
+.bz-page .bz-hero .btn { color: #5a3010; }
 .bz-page select { background: var(--bz-card); border: 1px solid #d4c6aa; }
-.bz-page .bz-hero select { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14); }
+.bz-page .bz-hero select { background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28); }
 
 /* Buyer detail (Bronze). Same palette as the list; only used inside .bz-page. */
-.bz-hero-title .bz-sub { color: #cdbfa4; font-size: 14px; font-weight: 400; }
-.bz-hero .badge.b-grey { background: transparent; border-color: #cdbfa4; color: #e6dcc6; }
-.bz-hero .badge.b-red { background: transparent; border-color: #d98a78; color: #f0b9ab; }
+.bz-hero-title .bz-sub { color: #f3e4cb; font-size: 14px; font-weight: 400; }
+.bz-hero .badge.b-grey { background: rgba(255, 255, 255, 0.12); border-color: #f3e4cb; color: #fff7e8; }
+.bz-hero .badge.b-red { background: rgba(255, 255, 255, 0.12); border-color: #f6c3b4; color: #ffe3da; }
 .bz-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .bz-field { background: var(--bz-card); border: 1px solid var(--bz-card-line); border-left: 3px solid var(--bz-copper); border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 2px rgba(60, 40, 15, 0.08); }
 .bz-field .l { color: var(--bz-ink-soft); font-size: 12px; }
@@ -269,3 +272,32 @@ table.t.compact thead th { position: sticky; top: 0; background: #fff; z-index: 
 .bz-bubble-buyer { background: var(--bz-stripe); border: 1px solid var(--bz-line); color: var(--bz-ink); }
 .bz-bubble-reply { background: #ecd9b8; border: 1px solid #dcc79f; color: #3b2a14; }
 .bz-page .card .soft { color: var(--bz-ink-soft); }
+
+/* Legibility: darker supporting text on the cream surface. */
+.bz-page .sub, .bz-page .soft { color: var(--bz-ink-soft); }
+.bz-hero-sub { color: #e6dcc3; }
+
+/* Legibility: the buyer table. */
+.bz-page table.t.bz thead th { font-size: 12px; font-weight: 600; letter-spacing: 0.9px; }
+.bz-page table.t.bz td { font-size: 14px; }
+.bz-page table.t.bz td a { color: var(--bz-espresso); font-weight: 600; font-size: 15px; }
+.bz-page table.t.bz td a:hover { color: var(--bz-copper); text-decoration: underline; }
+.bz-when { font-size: 13px; }
+.bz-av { width: 38px; height: 38px; font-size: 13px; font-weight: 600; }
+.bz-pill, .bz-tag { font-size: 13px; font-weight: 500; }
+
+/* Legibility: summary cards and card titles. */
+.bz-stat .l { font-size: 13px; font-weight: 500; color: var(--bz-ink-soft); }
+.bz-stat .v { font-size: 34px; font-weight: 600; line-height: 1.15; }
+.bz-page .card h3 { font-size: 17px; font-weight: 600; color: var(--bz-espresso); }
+.bz-page .card .sub { font-size: 13px; }
+
+/* Legibility: the notice on the Bronze surface. */
+.bz-page .notice { background: #f6e7c0; color: #4d3200; border: 1px solid #e0c26e; border-left: 4px solid var(--bz-brass); font-size: 14px; font-weight: 500; line-height: 1.45; padding: 12px 16px; }
+
+/* Legibility: day tabs and filter chips. */
+.bz-tabs a { color: #43341b; font-size: 14px; font-weight: 500; padding: 8px 18px; }
+.bz-tabs a.on { font-weight: 600; }
+.bz-page .chip { font-size: 13px; padding: 6px 14px; color: #3a2d17; }
+.bz-page .chip.on { font-weight: 600; }
+.bz-search input[type="search"], .bz-search select { font-size: 14px; }

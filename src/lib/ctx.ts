@@ -14,8 +14,9 @@ export const getCtx = cache(async (): Promise<Ctx | null> => {
   const jar = await cookies();
   const all = await query<Branch>("select id, company_id, name, suburbs from branches order by name");
   const allowed = session.role === "platform_admin" ? all : session.role === "company_admin" ? all.filter((b) => b.company_id === session.companyId) : all.filter((b) => b.id === session.branchId);
-  const wanted = jar.get("scope")?.value;
-  const branch = allowed.find((b) => b.id === wanted) || allowed.find((b) => b.id === "pen") || allowed[0];
+  // The branch switcher is gone from the top bar, so an old "scope" cookie must not decide the branch:
+  // it could leave someone stuck on a branch with no live data. Penrith first, otherwise the first branch they may see.
+  const branch = allowed.find((b) => b.id === "pen") || allowed[0];
   const co = await query<{ name: string }>("select name from companies where id = $1", [branch?.company_id ?? "prd"]);
   return { session, branch, branches: allowed, liveOnly: jar.get("liveOnly")?.value === "1", companyName: co[0]?.name ?? "PRD Group" };
 });

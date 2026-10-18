@@ -3,7 +3,7 @@ import { access } from "@/lib/ctx";
 import { getConversations } from "@/lib/data/conversations";
 import { Card, Denied, Notice, StatusBadge, fmtDate } from "@/components/ui";
 import { conversationDays, conversationsOnDay, dayLabel, splitDays, timeLabel, turnsOnDay } from "@/lib/buyer-days";
-import { initials } from "@/lib/buyer-display";
+import { initials, titleName } from "@/lib/buyer-display";
 import { agentsOf, applyFilters, parseStatus, type BuyerStatus } from "@/lib/buyer-filters";
 import type { Conversation } from "@/lib/data/types";
 
@@ -48,7 +48,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         <input type="search" name="q" defaultValue={q} placeholder="Search buyer, property, source or agent" aria-label="Search buyers" />
         <select name="agent" defaultValue={agent} aria-label="Filter by agent">
           <option value="">All agents</option>
-          {agents.map((a) => <option key={a} value={a}>{a}</option>)}
+          {agents.map((a) => <option key={a} value={a}>{titleName(a)}</option>)}
         </select>
         <button className="btn">Search</button>
         {(q || status !== "all" || agent) && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
@@ -84,22 +84,6 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
         ))}
       </div>
 
-      <form method="get" action="/buyer" style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="search">
-        <input type="hidden" name="day" value={day} />
-        <input type="hidden" name="status" value={status} />
-        <input type="search" name="q" defaultValue={q} placeholder="Search buyer, property, source or agent" aria-label="Search buyers" style={{ flex: "1 1 260px", maxWidth: 420 }} />
-        <select name="agent" defaultValue={agent} aria-label="Filter by agent" style={{ width: "auto", maxWidth: 220 }}>
-          <option value="">All agents</option>
-          {agents.map((a) => <option key={a} value={a}>{a}</option>)}
-        </select>
-        <button className="btn">Search</button>
-        {(q || status !== "all" || agent) && <Link className="btn" href={`/buyer?day=${day}`}>Clear</Link>}
-      </form>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {([["all", "All"], ["handed", "Handed to agent"], ["replying", "Assistant replying"]] as [BuyerStatus, string][]).map(([k, label]) => (
-          <Link key={k} className={`chip${status === k ? " on" : ""}`} aria-current={status === k ? "true" : undefined} href={`/buyer?day=${day}&status=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}${agent ? `&agent=${encodeURIComponent(agent)}` : ""}`}>{label}</Link>
-        ))}
-      </div>
 
       <Card status={res.status} title={day === "all" ? "All Data" : dayLabel(day)} sub={`${plural(rows.length, "buyer")} · ${plural(replies, "reply").replace("replys", "replies")} · ${handed} handed to an agent. Open a name to see every message and reply.`} source={res.source}>
         <div style={{ overflow: "auto" }}>
@@ -121,7 +105,7 @@ export default async function Buyer({ searchParams }: { searchParams: Promise<{ 
                   <td>{c.source && <span className="bz-tag">{c.source}</span>}</td>
                   <td><span className={`bz-pill ${c.temperature.toLowerCase()}`}>{c.temperature}</span></td>
                   <td className="soft">{INSP[c.inspection] ?? c.inspection}</td>
-                  <td>{c.optedOut ? <span className="bz-pill hot">Opted out</span> : c.readyForAgent ? (c.handoffStatus === "done" ? <span className="bz-pill ok">Contacted by {c.agent || "agent"}</span> : <span className="bz-pill ok">With {c.agent || "agent"}</span>) : <span className="bz-pill info">Assistant replying</span>}</td>
+                  <td>{c.optedOut ? <span className="bz-pill hot">Opted out</span> : c.readyForAgent ? (c.handoffStatus === "done" ? <span className="bz-pill ok">Contacted by {titleName(c.agent) || "agent"}</span> : <span className="bz-pill ok">With {titleName(c.agent) || "agent"}</span>) : <span className="bz-pill info">Assistant replying</span>}</td>
                 </tr>
               ))}
             </tbody>
