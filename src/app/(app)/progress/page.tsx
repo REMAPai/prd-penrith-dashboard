@@ -9,10 +9,10 @@ import { audit } from "@/lib/session";
 type Item = { id: number; project: string; kind: string; text: string; owner: string | null; due: string | null; status: string };
 
 // Percent = share of SRS requirements marked Done for the project (rounded estimate, see docs/requirements/srs.md).
-const PROJECTS: { name: string; status: Status; pct: number; body: string; next: string }[] = [
+const PROJECTS: { name: string; status: Status; label?: string; pct: number; body: string; next: string }[] = [
   { name: "Buyer Sequencing", status: "live", pct: 90, body: "Answers portal enquiries from live Vault data and logs every conversation. Outbound sending is held until the inbound reply rule is set.", next: "Release outbound send" },
-  { name: "Development Playbook", status: "prototype", pct: 95, body: "Each Monday's run is shown week by week, exactly as it is written in the Developer_playbook sheet: applications, zone, applicant, status and companies. Fields the sheet does not hold are marked with the reason.", next: "First weekly run posted to the dashboard" },
-  { name: "Meta Lead Funnel", status: "waiting", pct: 15, body: "Scoped. Landing-page enquiries still go through a manual sheet. Direct messages wait on Meta approval.", next: "Confirm form wiring to Vault" },
+  { name: "Development Playbook", status: "live", pct: 95, body: "Each Monday's run is shown week by week, exactly as it is written in the Developer_playbook sheet: applications, zone, applicant, status and companies. Fields the sheet does not hold are marked with the reason.", next: "First weekly run posted to the dashboard" },
+  { name: "Meta Lead Funnel", status: "waiting", label: "Scoped", pct: 15, body: "Scoped. Landing-page enquiries still go through a manual sheet. Direct messages wait on Meta approval.", next: "Confirm form wiring to Vault" },
   { name: "After-hours Voice Agent", status: "planned", pct: 5, body: "Prototype only. No build until Buyer Sequencing is stable and the scope and cost are approved.", next: "Scope and cost sign-off" },
   { name: "Google Reviews", status: "planned", pct: 0, body: "Parked after the realestate.com.au conversation.", next: "Reactivate when asked" },
 ];
@@ -53,7 +53,7 @@ export default async function Progress() {
                     <div className="ring" style={{ background: `conic-gradient(var(--brand) ${p.pct * 3.6}deg, var(--planned-tint) 0)` }}><div>{p.pct}%</div></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600 }}>{p.name}</div>
-                      <StatusBadge status={p.status} />
+                      <StatusBadge status={p.status} label={p.label} />
                     </div>
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.5 }}>{p.body}</div>
